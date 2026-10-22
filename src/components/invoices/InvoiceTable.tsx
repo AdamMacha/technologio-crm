@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { InvoiceWithItems, InvoiceStatus } from "@/types";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { StatusBadge } from "@/ui/status-badge";
@@ -29,6 +29,10 @@ export function InvoiceTable({ initialInvoices }: InvoiceTableProps) {
   const [invoices, setInvoices] = useState<InvoiceWithItems[]>(initialInvoices);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  useEffect(() => {
+    setInvoices(initialInvoices);
+  }, [initialInvoices]);
 
   const handleStatusChange = async (id: string, newStatus: InvoiceStatus) => {
     try {

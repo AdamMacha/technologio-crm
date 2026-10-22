@@ -6,6 +6,9 @@ export const metadata = {
   title: "Nová faktura – Technologio",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function NewInvoicePage() {
   const [clients, settings] = await Promise.all([
     getClients(),

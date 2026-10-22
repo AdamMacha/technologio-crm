@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Client } from "@/types";
 import { formatCurrency } from "@/lib/formatters";
 import { Button } from "@/ui/button";
@@ -34,6 +34,10 @@ export function ClientList({ initialClients }: ClientListProps) {
   const [filterRetainer, setFilterRetainer] = useState<"all" | "retainer" | "onetime">("all");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    setClients(initialClients);
+  }, [initialClients]);
 
   const filteredClients = clients.filter((client) => {
     const matchesSearch =

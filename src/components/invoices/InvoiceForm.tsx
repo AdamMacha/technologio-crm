@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { saveInvoice, getNextInvoiceNumber } from "@/lib/data-store";
+import { saveInvoice, getNextInvoiceNumber, getClients } from "@/lib/data-store";
+import { ClientModal } from "@/components/clients/ClientModal";
 
 interface InvoiceFormProps {
   clients: Client[];
@@ -35,6 +36,8 @@ export function InvoiceForm({
   const searchParams = useSearchParams();
   const initialClientId = preselectedClientId || searchParams.get("clientId") || "";
 
+  const [clientList, setClientList] = useState<Client[]>(clients);
+  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>(initialClientId);
   const [invoiceNumber, setInvoiceNumber] = useState<string>("");
   const [variableSymbol, setVariableSymbol] = useState<string>("");
@@ -42,6 +45,22 @@ export function InvoiceForm({
   const [dueDate, setDueDate] = useState<string>("");
   const [taxableDate, setTaxableDate] = useState<string>(toISODateString());
   const [notes, setNotes] = useState<string>(settings.invoice_note || "");
+
+  // Načíst klienty na klientovi pro zajištění nejnovějších dat
+  useEffect(() => {
+    getClients().then((res) => {
+      if (res && res.length > 0) {
+        setClientList(res);
+      }
+    });
+  }, []);
+
+  // Synchronizovat pokud se změní clients prop
+  useEffect(() => {
+    if (clients && clients.length > 0) {
+      setClientList(clients);
+    }
+  }, [clients]);
 
   // Client snapshot
   const [clientName, setClientName] = useState("");
@@ -81,7 +100,7 @@ export function InvoiceForm({
   // Handle client selection
   useEffect(() => {
     if (selectedClientId) {
-      const client = clients.find((c) => c.id === selectedClientId);
+      const client = clientList.find((c) => c.id === selectedClientId);
       if (client) {
         setClientName(client.name);
         setClientIco(client.ico || "");
@@ -106,7 +125,7 @@ export function InvoiceForm({
         }
       }
     }
-  }, [selectedClientId, clients, settings.is_vat_payer]);
+  }, [selectedClientId, clientList, settings.is_vat_payer]);
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0);
@@ -194,6 +213,7 @@ export function InvoiceForm({
       const saved = await saveInvoice(invoiceData, items);
       toast.success(`Faktura ${saved.invoice_number} byla úspěšně vystavena!`);
       router.push(`/invoices/${saved.id}`);
+      router.refresh();
     } catch (err) {
       toast.error("Chyba při vystavování faktury");
     } finally {
@@ -274,12 +294,14 @@ export function InvoiceForm({
                 Odběratel (Klient)
               </span>
             </div>
-            <Link
-              href="/clients"
-              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+            <button
+              type="button"
+              onClick={() => setIsClientModalOpen(true)}
+              className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-medium cursor-pointer"
             >
-              + Nový klient
-            </Link>
+              <Plus className="w-3.5 h-3.5" />
+              Nový klient
+            </button>
           </div>
 
           <div>
@@ -293,7 +315,7 @@ export function InvoiceForm({
               className="mt-1 flex h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500/50"
             >
               <option value="">-- Vyberte klienta ze seznamu --</option>
-              {clients.map((c) => (
+              {clientList.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} {c.ico ? `(IČO: ${c.ico})` : ""}
                 </option>
@@ -545,6 +567,18 @@ export function InvoiceForm({
           Vystavit fakturu {invoiceNumber}
         </Button>
       </div>
+
+      <ClientModal
+        open={isClientModalOpen}
+        onOpenChange={setIsClientModalOpen}
+        onSaved={(newClient) => {
+          setClientList((prev) => {
+            const exists = prev.some((c) => c.id === newClient.id);
+            return exists ? prev.map((c) => (c.id === newClient.id ? newClient : c)) : [newClient, ...prev];
+          });
+          setSelectedClientId(newClient.id);
+        }}
+      />
     </form>
   );
 }
