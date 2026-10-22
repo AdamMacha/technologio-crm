@@ -1,10 +1,27 @@
 import { Client, Invoice, InvoiceItem, InvoiceWithItems, Settings, DashboardStats, InvoiceStatus } from "@/types";
-import { createClient as getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createClient as getSupabaseClient } from "@/lib/supabase/client";
 import { toISODateString, getCurrentPeriod } from "@/lib/formatters";
+
+// Helper pro ověření a generování platného UUID (vyžaduje PostgreSQL)
+export function generateUUID(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export function isValidUUID(id: string | null | undefined): boolean {
+  if (!id) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+}
 
 // Výchozí nastavení studia Technologio
 export const defaultSettings: Settings = {
-  id: "technologio-settings-default",
+  id: "99999999-9999-4999-8999-999999999999",
   company_name: "Technologio s.r.o.",
   ico: "19842103",
   dic: "CZ19842103",
@@ -24,10 +41,10 @@ export const defaultSettings: Settings = {
   updated_at: new Date().toISOString(),
 };
 
-// Výchozí klienti pro okamžité vyzkoušení
+// Výchozí klienti pro vyzkoušení s platnými UUID
 export const initialClients: Client[] = [
   {
-    id: "client-1",
+    id: "11111111-1111-4111-8111-111111111111",
     name: "Vinařství Na Kopci s.r.o.",
     ico: "28471923",
     dic: "CZ28471923",
@@ -47,7 +64,7 @@ export const initialClients: Client[] = [
     created_at: "2026-01-10T10:00:00Z",
   },
   {
-    id: "client-2",
+    id: "22222222-2222-4222-8222-222222222222",
     name: "FitLife Studio s.r.o.",
     ico: "07391284",
     dic: "CZ07391284",
@@ -67,7 +84,7 @@ export const initialClients: Client[] = [
     created_at: "2026-02-15T11:00:00Z",
   },
   {
-    id: "client-3",
+    id: "33333333-3333-4333-8333-333333333333",
     name: "Architekti Horák & Partneři",
     ico: "14829301",
     dic: undefined,
@@ -87,7 +104,7 @@ export const initialClients: Client[] = [
     created_at: "2026-03-01T09:00:00Z",
   },
   {
-    id: "client-4",
+    id: "44444444-4444-4444-8444-444444444444",
     name: "GreenLogistics CZ a.s.",
     ico: "29103847",
     dic: "CZ29103847",
@@ -106,7 +123,7 @@ export const initialClients: Client[] = [
     created_at: "2026-04-12T14:20:00Z",
   },
   {
-    id: "client-5",
+    id: "55555555-5555-4555-8555-555555555555",
     name: "Kavárna Druhý Domov",
     ico: "09283711",
     dic: undefined,
@@ -130,8 +147,8 @@ export const initialClients: Client[] = [
 // Výchozí faktury
 export const initialInvoices: InvoiceWithItems[] = [
   {
-    id: "inv-20260001",
-    client_id: "client-1",
+    id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    client_id: "11111111-1111-4111-8111-111111111111",
     invoice_number: "20260001",
     variable_symbol: "20260001",
     issue_date: "2026-10-01",
@@ -173,8 +190,8 @@ export const initialInvoices: InvoiceWithItems[] = [
     ],
   },
   {
-    id: "inv-20260002",
-    client_id: "client-4",
+    id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    client_id: "44444444-4444-4444-8444-444444444444",
     invoice_number: "20260002",
     variable_symbol: "20260002",
     issue_date: "2026-10-12",
@@ -200,7 +217,7 @@ export const initialInvoices: InvoiceWithItems[] = [
     currency: "CZK",
     is_retainer: false,
     retainer_period: null,
-    notes: "Redesign webové prezentace a kalkulačky přepravy dle akceptačního protokolu ze dne 10.10.2026.",
+    notes: "Redesign webové prezentace a kalkulačky přepravy dle akceptačního protokolu.",
     paid_at: null,
     created_at: "2026-10-12T09:30:00Z",
     items: [
@@ -224,105 +241,21 @@ export const initialInvoices: InvoiceWithItems[] = [
       },
     ],
   },
-  {
-    id: "inv-20260003",
-    client_id: "client-2",
-    invoice_number: "20260003",
-    variable_symbol: "20260003",
-    issue_date: "2026-10-05",
-    due_date: "2026-10-19",
-    taxable_date: "2026-10-05",
-    status: "paid",
-    payment_method: "bank_transfer",
-    supplier_name: defaultSettings.company_name,
-    supplier_ico: defaultSettings.ico,
-    supplier_dic: defaultSettings.dic,
-    supplier_address: `${defaultSettings.street}, ${defaultSettings.zip} ${defaultSettings.city}`,
-    supplier_bank_account: defaultSettings.bank_account,
-    supplier_iban: defaultSettings.iban,
-    supplier_swift: defaultSettings.swift,
-    client_name: "FitLife Studio s.r.o.",
-    client_ico: "07391284",
-    client_dic: "CZ07391284",
-    client_address: "Nádražní 58, 602 00 Brno",
-    client_email: "provoz@fitlifestudio.cz",
-    subtotal: 8000,
-    tax_amount: 0,
-    total_amount: 8000,
-    currency: "CZK",
-    is_retainer: true,
-    retainer_period: "2026-10",
-    notes: "Pravidelný paušál za správu a hosting.",
-    paid_at: "2026-10-14T11:20:00Z",
-    created_at: "2026-10-05T08:00:00Z",
-    items: [
-      {
-        id: "item-3-1",
-        description: "Hosting, maintenance webu a technická podpora (10/2026)",
-        quantity: 1,
-        unit: "měsíc",
-        unit_price: 8000,
-        vat_rate: 0,
-        total_price: 8000,
-      },
-    ],
-  },
-  {
-    id: "inv-20260004",
-    client_id: "client-3",
-    invoice_number: "20260004",
-    variable_symbol: "20260004",
-    issue_date: "2026-09-15",
-    due_date: "2026-09-29",
-    taxable_date: "2026-09-15",
-    status: "overdue",
-    payment_method: "bank_transfer",
-    supplier_name: defaultSettings.company_name,
-    supplier_ico: defaultSettings.ico,
-    supplier_dic: defaultSettings.dic,
-    supplier_address: `${defaultSettings.street}, ${defaultSettings.zip} ${defaultSettings.city}`,
-    supplier_bank_account: defaultSettings.bank_account,
-    supplier_iban: defaultSettings.iban,
-    supplier_swift: defaultSettings.swift,
-    client_name: "Architekti Horák & Partneři",
-    client_ico: "14829301",
-    client_address: "Dlouhá 22, 110 00 Praha 1",
-    client_email: "horak@horak-architekti.cz",
-    subtotal: 15000,
-    tax_amount: 0,
-    total_amount: 15000,
-    currency: "CZK",
-    is_retainer: true,
-    retainer_period: "2026-09",
-    notes: "Faktura za září 2026.",
-    paid_at: null,
-    created_at: "2026-09-15T08:00:00Z",
-    items: [
-      {
-        id: "item-4-1",
-        description: "Pravidelný grafický a webový servis, nové reference (09/2026)",
-        quantity: 1,
-        unit: "měsíc",
-        unit_price: 15000,
-        vat_rate: 0,
-        total_price: 15000,
-      },
-    ],
-  },
 ];
 
-// Helper pro ukládání a načítání z LocalStorage
+// Helper pro ukládání a načítání z LocalStorage (klientská mezipaměť)
 const STORAGE_KEYS = {
-  CLIENTS: "technologio_clients_v1",
-  INVOICES: "technologio_invoices_v1",
-  SETTINGS: "technologio_settings_v1",
+  CLIENTS: "technologio_clients_v2",
+  INVOICES: "technologio_invoices_v2",
+  SETTINGS: "technologio_settings_v2",
+  INITIALIZED: "technologio_initialized_v2",
 };
 
 function getLocalData<T>(key: string, defaultValue: T): T {
   if (typeof window === "undefined") return defaultValue;
   try {
     const item = window.localStorage.getItem(key);
-    return item ? JSON.parse(item) : defaultValue;
+    return item !== null ? JSON.parse(item) : defaultValue;
   } catch {
     return defaultValue;
   }
@@ -349,22 +282,35 @@ export function isSupabaseConfigured(): boolean {
 // CLIENTS API
 // ==========================================
 export async function getClients(): Promise<Client[]> {
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSupabaseClient();
   if (supabase) {
     try {
       const { data, error } = await supabase
         .from("clients")
         .select("*")
         .order("name", { ascending: true });
-      if (!error && data && data.length > 0) return data;
+
+      // Pokud Supabase vrátil data (i kdyby prázdné pole []), respektujeme stav databáze!
+      if (!error && Array.isArray(data)) {
+        return data;
+      }
     } catch (e) {
-      console.warn("Supabase clients query failed, falling back to local store", e);
+      console.warn("Supabase clients query failed, using local store", e);
     }
   }
 
-  // Fallback to local storage
-  const stored = getLocalData<Client[]>(STORAGE_KEYS.CLIENTS, initialClients);
-  return stored;
+  // Fallback na lokální úložiště pouze pokud Supabase není nakonfigurována
+  if (typeof window !== "undefined") {
+    const stored = window.localStorage.getItem(STORAGE_KEYS.CLIENTS);
+    if (stored !== null) {
+      return JSON.parse(stored);
+    }
+    // První spuštění bez Supabase
+    setLocalData(STORAGE_KEYS.CLIENTS, initialClients);
+    return initialClients;
+  }
+
+  return [];
 }
 
 export async function getClient(id: string): Promise<Client | null> {
@@ -376,11 +322,14 @@ export async function saveClient(client: Partial<Client>): Promise<Client> {
   const clients = await getClients();
   let updated: Client;
 
-  if (client.id) {
+  const validId = client.id && isValidUUID(client.id) ? client.id : generateUUID();
+
+  if (client.id && clients.some((c) => c.id === client.id)) {
     // Update
     updated = {
       ...clients.find((c) => c.id === client.id)!,
       ...client,
+      id: client.id,
       updated_at: new Date().toISOString(),
     } as Client;
     const newList = clients.map((c) => (c.id === client.id ? updated : c));
@@ -388,7 +337,7 @@ export async function saveClient(client: Partial<Client>): Promise<Client> {
   } else {
     // Create
     updated = {
-      id: `client-${Date.now()}`,
+      id: validId,
       name: client.name || "Nový klient",
       ico: client.ico || null,
       dic: client.dic || null,
@@ -411,11 +360,12 @@ export async function saveClient(client: Partial<Client>): Promise<Client> {
     setLocalData(STORAGE_KEYS.CLIENTS, [updated, ...clients]);
   }
 
-  // Also try Supabase if configured
-  const supabase = getSupabaseBrowserClient();
+  // Uložení do Supabase
+  const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      await supabase.from("clients").upsert(updated);
+      const { error } = await supabase.from("clients").upsert(updated);
+      if (error) console.error("Supabase upsert client error:", error);
     } catch (e) {
       console.warn("Supabase upsert client failed", e);
     }
@@ -425,33 +375,46 @@ export async function saveClient(client: Partial<Client>): Promise<Client> {
 }
 
 export async function deleteClient(id: string): Promise<boolean> {
-  const clients = await getClients();
-  const newList = clients.filter((c) => c.id !== id);
-  setLocalData(STORAGE_KEYS.CLIENTS, newList);
-
-  const supabase = getSupabaseBrowserClient();
+  // Smazání z Supabase
+  const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      await supabase.from("clients").delete().eq("id", id);
+      const { error } = await supabase.from("clients").delete().eq("id", id);
+      if (error) console.error("Supabase delete client error:", error);
     } catch (e) {
       console.warn("Supabase delete client failed", e);
     }
   }
+
+  // Smazání z lokální cache
+  const clients = await getClients();
+  const newList = clients.filter((c) => c.id !== id);
+  setLocalData(STORAGE_KEYS.CLIENTS, newList);
+
   return true;
+}
+
+export async function deactivateRetainer(clientId: string): Promise<Client | null> {
+  return await saveClient({
+    id: clientId,
+    has_retainer: false,
+    retainer_amount: 0,
+  });
 }
 
 // ==========================================
 // INVOICES API
 // ==========================================
 export async function getInvoices(): Promise<InvoiceWithItems[]> {
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSupabaseClient();
   if (supabase) {
     try {
       const { data, error } = await supabase
         .from("invoices")
         .select("*, invoice_items(*)")
         .order("invoice_number", { ascending: false });
-      if (!error && data && data.length > 0) {
+
+      if (!error && Array.isArray(data)) {
         return data.map((inv) => ({
           ...inv,
           items: inv.invoice_items || [],
@@ -462,7 +425,16 @@ export async function getInvoices(): Promise<InvoiceWithItems[]> {
     }
   }
 
-  return getLocalData<InvoiceWithItems[]>(STORAGE_KEYS.INVOICES, initialInvoices);
+  if (typeof window !== "undefined") {
+    const stored = window.localStorage.getItem(STORAGE_KEYS.INVOICES);
+    if (stored !== null) {
+      return JSON.parse(stored);
+    }
+    setLocalData(STORAGE_KEYS.INVOICES, initialInvoices);
+    return initialInvoices;
+  }
+
+  return [];
 }
 
 export async function getInvoice(id: string): Promise<InvoiceWithItems | null> {
@@ -507,11 +479,17 @@ export async function saveInvoice(
     invoiceNumber = await getNextInvoiceNumber();
   }
 
-  const id = invoiceData.id || `inv-${invoiceNumber}`;
+  const validId = invoiceData.id && isValidUUID(invoiceData.id) ? invoiceData.id : generateUUID();
+
+  // Ujistíme se, že client_id je platné UUID nebo null
+  const validClientId =
+    invoiceData.client_id && isValidUUID(invoiceData.client_id)
+      ? invoiceData.client_id
+      : null;
 
   const savedInvoice: InvoiceWithItems = {
-    id,
-    client_id: invoiceData.client_id || null,
+    id: validId,
+    client_id: validClientId,
     invoice_number: invoiceNumber,
     variable_symbol: invoiceData.variable_symbol || invoiceNumber,
     issue_date: invoiceData.issue_date || toISODateString(),
@@ -548,12 +526,12 @@ export async function saveInvoice(
     updated_at: new Date().toISOString(),
     items: items.map((it, idx) => ({
       ...it,
-      id: it.id || `item-${Date.now()}-${idx}`,
-      invoice_id: id,
+      id: it.id && isValidUUID(it.id) ? it.id : generateUUID(),
+      invoice_id: validId,
     })),
   };
 
-  const existingIdx = invoices.findIndex((i) => i.id === id);
+  const existingIdx = invoices.findIndex((i) => i.id === validId);
   let updatedList: InvoiceWithItems[];
   if (existingIdx >= 0) {
     updatedList = [...invoices];
@@ -564,17 +542,26 @@ export async function saveInvoice(
 
   setLocalData(STORAGE_KEYS.INVOICES, updatedList);
 
-  // Supabase sync
-  const supabase = getSupabaseBrowserClient();
+  // Uložení do Supabase
+  const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      const { items: invoiceItems, ...invoiceRecord } = savedInvoice;
-      await supabase.from("invoices").upsert(invoiceRecord);
+      const { items: invoiceItems, client: _, ...invoiceRecord } = savedInvoice as any;
+      const { error: invErr } = await supabase.from("invoices").upsert(invoiceRecord);
+      if (invErr) console.error("Supabase upsert invoice error:", invErr);
+
       if (invoiceItems && invoiceItems.length > 0) {
-        await supabase.from("invoice_items").delete().eq("invoice_id", id);
+        await supabase.from("invoice_items").delete().eq("invoice_id", validId);
         await supabase.from("invoice_items").insert(
-          invoiceItems.map((item, order) => ({
-            ...item,
+          invoiceItems.map((item: any, order: number) => ({
+            id: item.id && isValidUUID(item.id) ? item.id : generateUUID(),
+            invoice_id: validId,
+            description: item.description,
+            quantity: item.quantity,
+            unit: item.unit,
+            unit_price: item.unit_price,
+            vat_rate: item.vat_rate,
+            total_price: item.total_price,
             order_index: order,
           }))
         );
@@ -598,7 +585,7 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Pr
 
   setLocalData(STORAGE_KEYS.INVOICES, invoices);
 
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSupabaseClient();
   if (supabase) {
     try {
       await supabase
@@ -618,18 +605,21 @@ export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Pr
 }
 
 export async function deleteInvoice(id: string): Promise<boolean> {
-  const invoices = await getInvoices();
-  const filtered = invoices.filter((i) => i.id !== id);
-  setLocalData(STORAGE_KEYS.INVOICES, filtered);
-
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      await supabase.from("invoices").delete().eq("id", id);
+      await supabase.from("invoice_items").delete().eq("invoice_id", id);
+      const { error } = await supabase.from("invoices").delete().eq("id", id);
+      if (error) console.error("Supabase delete invoice error:", error);
     } catch (e) {
       console.warn("Supabase delete invoice failed", e);
     }
   }
+
+  const invoices = await getInvoices();
+  const filtered = invoices.filter((i) => i.id !== id);
+  setLocalData(STORAGE_KEYS.INVOICES, filtered);
+
   return true;
 }
 
@@ -650,17 +640,15 @@ export async function generateRetainersForPeriod(
   for (let i = 0; i < updatedClients.length; i++) {
     const client = updatedClients[i];
     
-    // Only active retainers
+    // Pouze aktivní paušály
     if (!client.has_retainer || !client.retainer_amount || client.retainer_amount <= 0) {
       continue;
     }
 
-    // Filter by day if specified (e.g. today's day of month in cron)
     if (onlyForDay !== undefined && client.retainer_billing_day !== onlyForDay) {
       continue;
     }
 
-    // Check if invoice for this period already exists for this client
     const alreadyGenerated = invoices.some(
       (inv) => inv.client_id === client.id && inv.retainer_period === period
     );
@@ -669,7 +657,6 @@ export async function generateRetainersForPeriod(
       continue;
     }
 
-    // Generate invoice
     const invNumber = await getNextInvoiceNumber();
     const issueDate = toISODateString();
     const dueDate = toISODateString(new Date(Date.now() + (settings.default_due_days || 14) * 86400000));
@@ -698,7 +685,7 @@ export async function generateRetainersForPeriod(
         payment_method: "bank_transfer",
         is_retainer: true,
         retainer_period: period,
-        notes: `Pravidelná měsíční fakturace na základě smlouvy o dílo / servisní smlouvy za období ${month}/${year}.`,
+        notes: `Pravidelná měsíční fakturace na základě servisní smlouvy za období ${month}/${year}.`,
         client_name: client.name,
         client_ico: client.ico,
         client_dic: client.dic,
@@ -710,9 +697,17 @@ export async function generateRetainersForPeriod(
 
     generatedInvoices.push(newInvoice);
 
-    // Update client's last generated period
     client.retainer_last_generated_period = period;
     client.updated_at = new Date().toISOString();
+
+    // Aktualizovat i v Supabase
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      await supabase.from("clients").update({
+        retainer_last_generated_period: period,
+        updated_at: client.updated_at,
+      }).eq("id", client.id);
+    }
   }
 
   setLocalData(STORAGE_KEYS.CLIENTS, updatedClients);
@@ -729,10 +724,10 @@ export async function generateRetainersForPeriod(
 // SETTINGS API
 // ==========================================
 export async function getSettings(): Promise<Settings> {
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      const { data, error } = await supabase.from("settings").select("*").single();
+      const { data, error } = await supabase.from("settings").select("*").limit(1).maybeSingle();
       if (!error && data) return data;
     } catch (e) {
       console.warn("Supabase settings query failed, using local store", e);
@@ -744,15 +739,18 @@ export async function getSettings(): Promise<Settings> {
 
 export async function saveSettings(settings: Partial<Settings>): Promise<Settings> {
   const current = await getSettings();
+  const validId = current.id && isValidUUID(current.id) ? current.id : defaultSettings.id;
+
   const updated: Settings = {
     ...current,
     ...settings,
+    id: validId,
     updated_at: new Date().toISOString(),
   };
 
   setLocalData(STORAGE_KEYS.SETTINGS, updated);
 
-  const supabase = getSupabaseBrowserClient();
+  const supabase = getSupabaseClient();
   if (supabase) {
     try {
       await supabase.from("settings").upsert(updated);
@@ -781,12 +779,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   for (const inv of invoices) {
     const isThisMonth = inv.issue_date && inv.issue_date.startsWith(currentPeriod);
     
-    // Celkem vyfakturováno tento měsíc
     if (isThisMonth && inv.status !== "cancelled") {
       totalBilledThisMonth += Number(inv.total_amount) || 0;
     }
 
-    // Zaplaceno tento měsíc
     if (inv.status === "paid") {
       const paidDate = inv.paid_at ? inv.paid_at.slice(0, 7) : inv.issue_date.slice(0, 7);
       if (paidDate === currentPeriod) {
@@ -794,7 +790,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       }
     }
 
-    // Po splatnosti (status overdue nebo due_date < dnes a status pending)
     const isOverdue = inv.status === "overdue" || (inv.status === "pending" && inv.due_date < todayStr);
     if (isOverdue) {
       overdueAmount += Number(inv.total_amount) || 0;
@@ -802,7 +797,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     }
   }
 
-  // MRR (Monthly Recurring Revenue) ze všech aktivních paušálů
   const activeRetainers = clients.filter((c) => c.has_retainer && (c.retainer_amount || 0) > 0);
   const mrr = activeRetainers.reduce((sum, c) => sum + (Number(c.retainer_amount) || 0), 0);
 
@@ -815,4 +809,35 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     activeRetainersCount: activeRetainers.length,
     totalInvoicesCount: invoices.length,
   };
+}
+
+// ==========================================
+// SEED & WIPE HELPERS
+// ==========================================
+export async function seedDemoData(): Promise<void> {
+  for (const client of initialClients) {
+    await saveClient(client);
+  }
+
+  for (const invoice of initialInvoices) {
+    await saveInvoice(invoice, invoice.items);
+  }
+
+  await saveSettings(defaultSettings);
+}
+
+export async function clearAllData(): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    try {
+      await supabase.from("invoice_items").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await supabase.from("invoices").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+      await supabase.from("clients").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    } catch (e) {
+      console.warn("Supabase clear error:", e);
+    }
+  }
+
+  setLocalData(STORAGE_KEYS.CLIENTS, []);
+  setLocalData(STORAGE_KEYS.INVOICES, []);
 }

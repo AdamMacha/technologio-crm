@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Client, InvoiceWithItems } from "@/types";
 import { formatCurrency, getCurrentPeriod, formatPeriodName } from "@/lib/formatters";
 import { Button } from "@/ui/button";
-import { Badge } from "@/ui/badge";
 import {
   Repeat,
   Sparkles,
@@ -17,9 +16,18 @@ import {
   Check,
   TrendingUp,
   FileCheck,
+  Trash2,
+  Edit2,
+  Ban,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
-import { generateRetainersForPeriod } from "@/lib/data-store";
+import {
+  generateRetainersForPeriod,
+  deactivateRetainer,
+  deleteClient,
+} from "@/lib/data-store";
+import { ClientModal } from "@/components/clients/ClientModal";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
@@ -36,6 +44,10 @@ export function RetainerManager({
   const [invoices, setInvoices] = useState<InvoiceWithItems[]>(initialInvoices);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedCron, setCopiedCron] = useState(false);
+
+  // Modal edit state
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const currentPeriod = getCurrentPeriod();
   const currentMonthName = formatPeriodName(currentPeriod);
@@ -86,7 +98,6 @@ export function RetainerManager({
           });
         } catch {}
 
-        // Reload data from local store
         const { getClients, getInvoices } = await import("@/lib/data-store");
         const [updatedClients, updatedInvoices] = await Promise.all([
           getClients(),
@@ -102,6 +113,48 @@ export function RetainerManager({
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleDeactivate = async (clientId: string, clientName: string) => {
+    if (
+      confirm(
+        `Opravdu chcete zrušit měsíční paušál pro klienta "${clientName}"?\n(Klient zůstane v CRM, ale paušál bude deaktivován)`
+      )
+    ) {
+      try {
+        await deactivateRetainer(clientId);
+        setClients((prev) =>
+          prev.map((c) =>
+            c.id === clientId ? { ...c, has_retainer: false, retainer_amount: 0 } : c
+          )
+        );
+        toast.success(`Měsíční paušál pro "${clientName}" byl zrušen`);
+      } catch {
+        toast.error("Chyba při rušení paušálu");
+      }
+    }
+  };
+
+  const handleDeleteClient = async (clientId: string, clientName: string) => {
+    if (
+      confirm(
+        `Opravdu chcete trvale smazat klienta "${clientName}" a jeho paušál?`
+      )
+    ) {
+      try {
+        await deleteClient(clientId);
+        setClients((prev) => prev.filter((c) => c.id !== clientId));
+        toast.success(`Klient "${clientName}" byl smazán`);
+      } catch {
+        toast.error("Chyba při mazání klienta");
+      }
+    }
+  };
+
+  const handleSavedClient = (updatedClient: Client) => {
+    setClients((prev) =>
+      prev.map((c) => (c.id === updatedClient.id ? updatedClient : c))
+    );
   };
 
   const copyCronCommand = () => {
@@ -213,7 +266,7 @@ export function RetainerManager({
               Žádný klient zatím nemá nastaven paušál
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-              V sekci Klienti (CRM) upravte klienta a aktivujte přepínač "Aktivní měsíční paušál".
+              V sekci Klienti (CRM) upravte klienta a aktivujte přepínač "Aktivní měsíční paušál", nebo přidejte nového klienta.
             </p>
             <Link href="/clients" className="inline-block mt-4">
               <Button size="sm">Přejít na Klienty</Button>
@@ -229,7 +282,7 @@ export function RetainerManager({
                   <th scope="col" className="px-5 py-3.5">Den vystavení</th>
                   <th scope="col" className="px-5 py-3.5">Popis na faktuře</th>
                   <th scope="col" className="px-5 py-3.5">Stav za {currentMonthName}</th>
-                  <th scope="col" className="px-5 py-3.5 text-right">Odkaz</th>
+                  <th scope="col" className="px-5 py-3.5 text-right">Akce</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -278,17 +331,44 @@ export function RetainerManager({
                     </td>
 
                     <td className="px-5 py-4 text-right whitespace-nowrap">
-                      {invoice ? (
-                        <Link
-                          href={`/invoices/${invoice.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+                      <div className="flex items-center justify-end gap-1.5">
+                        {invoice && (
+                          <Link
+                            href={`/invoices/${invoice.id}`}
+                            className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                            title={`Zobrazit fakturu ${invoice.invoice_number}`}
+                          >
+                            <FileText className="w-4 h-4" />
+                          </Link>
+                        )}
+
+                        <button
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setIsModalOpen(true);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          title="Upravit paušál"
                         >
-                          <span>Faktura {invoice.invoice_number}</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </Link>
-                      ) : (
-                        <span className="text-xs text-slate-400">–</span>
-                      )}
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => handleDeactivate(client.id, client.name)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                          title="Zrušit měsíční paušál (klient zůstane v CRM)"
+                        >
+                          <Ban className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteClient(client.id, client.name)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                          title="Smazat klienta i paušál"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -341,6 +421,14 @@ export function RetainerManager({
           GET /api/cron/generate-retainers?secret=technologio-cron-secret
         </div>
       </div>
+
+      {/* Edit modal */}
+      <ClientModal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        client={selectedClient}
+        onSaved={handleSavedClient}
+      />
     </div>
   );
 }

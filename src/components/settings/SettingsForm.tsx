@@ -13,8 +13,11 @@ import {
   Copy,
   Sliders,
   ExternalLink,
+  Sparkles,
+  Trash2,
+  RefreshCw,
 } from "lucide-react";
-import { saveSettings, isSupabaseConfigured } from "@/lib/data-store";
+import { saveSettings, isSupabaseConfigured, seedDemoData, clearAllData } from "@/lib/data-store";
 import { toast } from "sonner";
 
 interface SettingsFormProps {
@@ -107,6 +110,64 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                 </>
               )}
             </button>
+          </div>
+        </div>
+
+        {/* Správa dat v databázi */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-indigo-500" />
+              <h2 className="font-semibold text-sm text-slate-900 dark:text-white">
+                Správa dat databáze
+              </h2>
+            </div>
+            <span className="text-xs text-slate-400">
+              Vzorová data a reset
+            </span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Můžete nahrát vzorové klienty a faktury pro vyzkoušení, nebo celou databázi vymazat pro čistý start.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={async () => {
+                  if (confirm("Nahrát do databáze vzorové klienty a faktury?")) {
+                    await seedDemoData();
+                    toast.success("Vzorová data byla úspěšně nahrána!");
+                    window.location.reload();
+                  }
+                }}
+              >
+                <Sparkles className="w-3.5 h-3.5 mr-1.5 text-indigo-500" />
+                Nahrát vzorová data
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  if (confirm("OPRAVDU chcete smazat VŠECHNY faktury i klienty z databáze?\nTuto akci nelze vzít zpět.")) {
+                    await clearAllData();
+                    toast.success("Všechna data byla vymazána!");
+                    window.location.reload();
+                  }
+                }}
+                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200 dark:border-rose-900"
+              >
+                <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                Vymazat všechna data
+              </Button>
+            </div>
           </div>
         </div>
 
