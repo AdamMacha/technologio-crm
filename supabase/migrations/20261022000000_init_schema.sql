@@ -149,3 +149,10 @@ CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice_id ON invoice_items(invoice
 INSERT INTO settings (company_name, ico, dic, is_vat_payer, street, city, zip, email, bank_account, iban, swift)
 SELECT 'Technologio s.r.o.', '12345678', 'CZ12345678', false, 'Václavské náměstí 1', 'Praha 1', '110 00', 'fakturace@technologio.cz', '2101234567/2010', 'CZ5820100000002101234567', 'FIOBCZPPXXX'
 WHERE NOT EXISTS (SELECT 1 FROM settings);
+
+-- 8. POVOLENÍ PŘÍSTUPU PRO INTERNÍ APLIKACI (ROW LEVEL SECURITY)
+ALTER TABLE settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE clients DISABLE ROW LEVEL SECURITY;
+ALTER TABLE invoices DISABLE ROW LEVEL SECURITY;
+ALTER TABLE invoice_items DISABLE ROW LEVEL SECURITY;
+
