@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Menu, Moon, Sun, Database } from "lucide-react";
+import { Menu, Moon, Sun, Database, LogOut } from "lucide-react";
 import { isSupabaseConfigured } from "@/lib/data-store";
 
 interface HeaderProps {
@@ -82,7 +82,7 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
         {/* Dark/Light mode toggle */}
         <button
           onClick={toggleDarkMode}
-          className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
           aria-label="Přepnout motiv vzhledu"
           title={isDark ? "Přepnout na světlý režim" : "Přepnout na tmavý režim"}
         >
@@ -91,6 +91,19 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
           ) : (
             <Moon className="w-4 h-4 text-slate-600" />
           )}
+        </button>
+
+        {/* Logout button */}
+        <button
+          onClick={async () => {
+            await fetch("/api/auth/logout", { method: "POST" });
+            window.location.href = "/login";
+          }}
+          className="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+          aria-label="Odhlásit se"
+          title="Odhlásit se"
+        >
+          <LogOut className="w-4 h-4" />
         </button>
       </div>
     </header>

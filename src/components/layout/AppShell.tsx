@@ -1,18 +1,29 @@
 "use client";
 
 import { ReactNode, useState, Suspense } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { X } from "lucide-react";
 
-export function AppShell({ children }: { children: ReactNode }) {
+function AppShellContent({ children }: { children: ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  // On login screen, don't show navigation shell
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
       {/* Desktop Sidebar */}
       <div className="hidden md:flex h-full">
-        <Suspense fallback={<div className="w-64 border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80" />}>
+        <Suspense
+          fallback={
+            <div className="w-64 border-r border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80" />
+          }
+        >
           <Sidebar />
         </Suspense>
       </div>
@@ -49,11 +60,17 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         <Header onOpenMobileMenu={() => setMobileMenuOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="max-w-7xl mx-auto space-y-8">
-            {children}
-          </div>
+          <div className="max-w-7xl mx-auto space-y-8">{children}</div>
         </main>
       </div>
     </div>
+  );
+}
+
+export function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-950" />}>
+      <AppShellContent>{children}</AppShellContent>
+    </Suspense>
   );
 }
