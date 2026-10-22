@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Settings } from "@/types";
 import { Button } from "@/ui/button";
 import { Input, Label, Textarea } from "@/ui/input";
@@ -25,11 +26,16 @@ interface SettingsFormProps {
 }
 
 export function SettingsForm({ initialSettings }: SettingsFormProps) {
+  const router = useRouter();
   const [settings, setSettings] = useState<Settings>(initialSettings);
   const [isSaving, setIsSaving] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
 
   const isSupabase = isSupabaseConfigured();
+
+  useEffect(() => {
+    setSettings(initialSettings);
+  }, [initialSettings]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +44,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
       const updated = await saveSettings(settings);
       setSettings(updated);
       toast.success("Nastavení studia Technologio bylo uloženo");
+      router.refresh();
     } catch {
       toast.error("Chyba při ukládání nastavení");
     } finally {

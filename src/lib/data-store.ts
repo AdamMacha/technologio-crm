@@ -727,8 +727,16 @@ export async function getSettings(): Promise<Settings> {
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      const { data, error } = await supabase.from("settings").select("*").limit(1).maybeSingle();
-      if (!error && data) return data;
+      const { data, error } = await supabase
+        .from("settings")
+        .select("*")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!error && data) {
+        return data;
+      }
     } catch (e) {
       console.warn("Supabase settings query failed, using local store", e);
     }
@@ -739,26 +747,41 @@ export async function getSettings(): Promise<Settings> {
 
 export async function saveSettings(settings: Partial<Settings>): Promise<Settings> {
   const current = await getSettings();
-  const validId = current.id && isValidUUID(current.id) ? current.id : defaultSettings.id;
 
   const updated: Settings = {
     ...current,
     ...settings,
-    id: validId,
     updated_at: new Date().toISOString(),
   };
-
-  setLocalData(STORAGE_KEYS.SETTINGS, updated);
 
   const supabase = getSupabaseClient();
   if (supabase) {
     try {
-      await supabase.from("settings").upsert(updated);
+      const { data: existing } = await supabase
+        .from("settings")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+
+      if (existing?.id) {
+        updated.id = existing.id;
+        const { error } = await supabase
+          .from("settings")
+          .update(updated)
+          .eq("id", existing.id);
+        if (error) console.error("Supabase update settings error:", error);
+      } else {
+        const newId = isValidUUID(updated.id) ? updated.id : generateUUID();
+        updated.id = newId;
+        const { error } = await supabase.from("settings").insert(updated);
+        if (error) console.error("Supabase insert settings error:", error);
+      }
     } catch (e) {
       console.warn("Supabase save settings failed", e);
     }
   }
 
+  setLocalData(STORAGE_KEYS.SETTINGS, updated);
   return updated;
 }
 

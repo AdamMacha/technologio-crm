@@ -5,6 +5,9 @@ export const metadata = {
   title: "Přehled (Dashboard) – Technologio",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function HomePage() {
   const [stats, invoices] = await Promise.all([
     getDashboardStats(),
