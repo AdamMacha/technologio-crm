@@ -12,11 +12,16 @@ async function sha256(message: string): Promise<string> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Veřejné cesty (statické soubory, ikony, next interní routy)
+  // 1. Veřejné cesty (statické soubory, obrázky, ikony, next interní routy, cron, login)
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon.ico") ||
-    pathname.startsWith("/logo.svg") ||
+    pathname.startsWith("/logo.") ||
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".jpg") ||
+    pathname.endsWith(".jpeg") ||
+    pathname.endsWith(".svg") ||
+    pathname.endsWith(".webp") ||
     pathname.startsWith("/api/cron") || // Cron má vlastní zabezpečení přes CRON_SECRET
     pathname.startsWith("/api/auth/login") ||
     pathname.startsWith("/api/auth/logout")

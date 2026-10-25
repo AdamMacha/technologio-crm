@@ -184,7 +184,7 @@ export function buildInvoiceEmailHtml(params: {
 <body>
   <div class="wrapper">
     <div class="header">
-      <img src="https://crm.technologio.eu/logo.png" alt="Technologio" style="height: 32px; width: auto; max-width: 165px; margin-bottom: 10px; display: block;" />
+      <img src="https://www.technologio.eu/logo.png" alt="Technologio" width="165" height="35" border="0" style="display: block; width: 165px; max-width: 165px; height: auto; border: 0; outline: none; text-decoration: none; -ms-interpolation-mode: bicubic; margin-bottom: 12px;" />
       <p>Faktura – Daňový doklad č. ${invoice.invoice_number}</p>
     </div>
 
@@ -384,11 +384,16 @@ export async function sendTestEmail(targetEmail: string): Promise<SendInvoiceEma
       replyTo: DEFAULT_REPLY_TO,
       subject: "Testovací zpráva – Technologio Fakturace",
       html: `
-        <div style="font-family: sans-serif; padding: 20px; max-width: 500px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px;">
-          <h2 style="color: #4f46e5; margin-top: 0;">Technologio Fakturace</h2>
-          <p>Tento e-mail potvrzuje, že napojení na službu <strong>Resend</strong> z adresy <code>faktury@technologio.eu</code> funguje správně.</p>
-          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-          <p style="font-size: 12px; color: #64748b;">Odesláno automaticky z interního systému Technologio CRM.</p>
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 500px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; background: #ffffff;">
+          <div style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 24px;">
+            <img src="https://www.technologio.eu/logo.png" alt="Technologio" width="150" height="32" border="0" style="display: block; width: 150px; height: auto;" />
+          </div>
+          <div style="padding: 24px;">
+            <h3 style="color: #0f172a; margin-top: 0; font-size: 16px;">Test napojení Resend v pořádku!</h3>
+            <p style="font-size: 14px; color: #334155; line-height: 1.5;">Tento e-mail potvrzuje, že odesílání faktur ze schránky <code>faktury@technologio.eu</code> přes službu <strong>Resend</strong> je aktivní a logo se načítá správně.</p>
+            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+            <p style="font-size: 12px; color: #94a3b8; margin: 0;">Odesláno z interního systému Technologio CRM • crm.technologio.eu</p>
+          </div>
         </div>
       `,
     });
