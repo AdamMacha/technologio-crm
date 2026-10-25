@@ -72,9 +72,17 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e2e8f0", // slate-200
   },
   brandBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    backgroundColor: "#0f172a",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    width: 135,
+    marginBottom: 3,
+  },
+  logoImage: {
+    width: 119,
+    height: 25,
+    objectFit: "contain",
   },
   logoBadge: {
     width: 28,
@@ -88,10 +96,9 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   brandName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 700,
-    color: "#0f172a", // slate-900
-    letterSpacing: -0.3,
+    color: "#ffffff",
   },
   brandTagline: {
     fontSize: 8,
@@ -341,11 +348,13 @@ const styles = StyleSheet.create({
 interface InvoicePdfProps {
   invoice: InvoiceWithItems;
   qrCodeUrl?: string;
+  logoPath?: string;
 }
 
 export const InvoicePdfDocument: React.FC<InvoicePdfProps> = ({
   invoice,
   qrCodeUrl,
+  logoPath,
 }) => {
   return (
     <Document title={`Faktura_${invoice.invoice_number}`} author="Technologio">
@@ -354,8 +363,14 @@ export const InvoicePdfDocument: React.FC<InvoicePdfProps> = ({
         <View style={styles.header}>
           <View>
             <View style={styles.brandBox}>
-              <Text style={styles.logoBadge}>T</Text>
-              <Text style={styles.brandName}>Technologio</Text>
+              {logoPath ? (
+                <Image src={logoPath} style={styles.logoImage} />
+              ) : (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={styles.logoBadge}>T</Text>
+                  <Text style={styles.brandName}>Technologio</Text>
+                </View>
+              )}
             </View>
             <Text style={styles.brandTagline}>Webové studio & Digitální řešení</Text>
           </View>
@@ -531,9 +546,13 @@ export async function generateInvoicePdfBuffer(
     console.warn("Failed to generate QR code for PDF:", err);
   }
 
+  const logoPath = path.join(process.cwd(), "public/logo.png");
+  const hasLogo = fs.existsSync(logoPath);
+
   const docElement = React.createElement(InvoicePdfDocument, {
     invoice,
     qrCodeUrl: qrDataUrl,
+    logoPath: hasLogo ? logoPath : undefined,
   });
 
   return await renderToBuffer(docElement as any);

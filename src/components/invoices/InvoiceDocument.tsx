@@ -120,15 +120,15 @@ export function InvoiceDocument({ initialInvoice }: InvoiceDocumentProps) {
         {/* Header: Studio Logo & Invoice Type */}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-8 border-b-2 border-slate-100">
           <div>
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-base shadow-sm">
-                T
-              </div>
-              <span className="font-bold tracking-tight text-slate-900 text-xl">
-                Technologio
-              </span>
+            <div className="inline-flex items-center px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="Technologio"
+                className="h-7 w-auto object-contain"
+              />
             </div>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-slate-500 mt-2">
               Webové studio & Digitální řešení
             </p>
           </div>

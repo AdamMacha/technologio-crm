@@ -184,8 +184,7 @@ export function buildInvoiceEmailHtml(params: {
 <body>
   <div class="wrapper">
     <div class="header">
-      <div class="header-logo">T</div>
-      <h1>Technologio</h1>
+      <img src="https://crm.technologio.eu/logo.png" alt="Technologio" style="height: 32px; width: auto; max-width: 165px; margin-bottom: 10px; display: block;" />
       <p>Faktura – Daňový doklad č. ${invoice.invoice_number}</p>
     </div>
 
