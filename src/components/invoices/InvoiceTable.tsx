@@ -16,10 +16,12 @@ import {
   Download,
   Calendar,
   AlertTriangle,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { updateInvoiceStatus, deleteInvoice } from "@/lib/data-store";
+import { SendInvoiceModal } from "./SendInvoiceModal";
 
 interface InvoiceTableProps {
   initialInvoices: InvoiceWithItems[];
@@ -29,6 +31,7 @@ export function InvoiceTable({ initialInvoices }: InvoiceTableProps) {
   const [invoices, setInvoices] = useState<InvoiceWithItems[]>(initialInvoices);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [emailInvoice, setEmailInvoice] = useState<InvoiceWithItems | null>(null);
 
   useEffect(() => {
     setInvoices(initialInvoices);
@@ -210,10 +213,25 @@ export function InvoiceTable({ initialInvoices }: InvoiceTableProps) {
                     {/* Action Buttons */}
                     <td className="px-5 py-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => setEmailInvoice(inv)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          title="Odeslat e-mailem klientovi"
+                        >
+                          <Mail className="w-4 h-4" />
+                        </button>
+                        <a
+                          href={`/api/invoices/${inv.id}/pdf`}
+                          download={`Faktura-${inv.invoice_number}.pdf`}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          title="Stáhnout PDF"
+                        >
+                          <Download className="w-4 h-4" />
+                        </a>
                         <Link
                           href={`/invoices/${inv.id}`}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                          title="Zobrazit a tisknout PDF"
+                          title="Detail faktury"
                         >
                           <Eye className="w-4 h-4" />
                         </Link>
@@ -233,6 +251,14 @@ export function InvoiceTable({ initialInvoices }: InvoiceTableProps) {
           </div>
         )}
       </div>
+
+      <SendInvoiceModal
+        open={Boolean(emailInvoice)}
+        onOpenChange={(open) => {
+          if (!open) setEmailInvoice(null);
+        }}
+        invoice={emailInvoice}
+      />
     </div>
   );
 }

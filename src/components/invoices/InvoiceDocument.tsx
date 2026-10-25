@@ -18,10 +18,12 @@ import {
   User,
   CreditCard,
   Sparkles,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import { updateInvoiceStatus } from "@/lib/data-store";
 import { toast } from "sonner";
+import { SendInvoiceModal } from "./SendInvoiceModal";
 
 interface InvoiceDocumentProps {
   initialInvoice: InvoiceWithItems;
@@ -30,6 +32,7 @@ interface InvoiceDocumentProps {
 export function InvoiceDocument({ initialInvoice }: InvoiceDocumentProps) {
   const [invoice, setInvoice] = useState<InvoiceWithItems>(initialInvoice);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadQr() {
@@ -88,10 +91,26 @@ export function InvoiceDocument({ initialInvoice }: InvoiceDocumentProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handlePrint}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="primary"
+            onClick={() => setIsEmailModalOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
+          >
+            <Mail className="w-4 h-4 mr-2" />
+            Odeslat e-mailem
+          </Button>
+
+          <a href={`/api/invoices/${invoice.id}/pdf`} download={`Faktura-${invoice.invoice_number}.pdf`}>
+            <Button variant="outline">
+              <Download className="w-4 h-4 mr-2" />
+              Stáhnout PDF
+            </Button>
+          </a>
+
+          <Button variant="ghost" onClick={handlePrint}>
             <Printer className="w-4 h-4 mr-2" />
-            Vytisknout / Uložit PDF
+            Tisk
           </Button>
         </div>
       </div>
@@ -306,6 +325,12 @@ export function InvoiceDocument({ initialInvoice }: InvoiceDocumentProps) {
           </div>
         )}
       </div>
+
+      <SendInvoiceModal
+        open={isEmailModalOpen}
+        onOpenChange={setIsEmailModalOpen}
+        invoice={invoice}
+      />
     </div>
   );
 }

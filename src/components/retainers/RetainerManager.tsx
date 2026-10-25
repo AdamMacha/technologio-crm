@@ -20,6 +20,7 @@ import {
   Edit2,
   Ban,
   FileText,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -28,6 +29,7 @@ import {
   deleteClient,
 } from "@/lib/data-store";
 import { ClientModal } from "@/components/clients/ClientModal";
+import { SendInvoiceModal } from "@/components/invoices/SendInvoiceModal";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
@@ -43,6 +45,8 @@ export function RetainerManager({
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [invoices, setInvoices] = useState<InvoiceWithItems[]>(initialInvoices);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [autoSendEmail, setAutoSendEmail] = useState(true);
+  const [emailInvoice, setEmailInvoice] = useState<InvoiceWithItems | null>(null);
   const [copiedCron, setCopiedCron] = useState(false);
 
   // Modal edit state
@@ -84,11 +88,30 @@ export function RetainerManager({
 
     setIsGenerating(true);
     try {
-      const result = await generateRetainersForPeriod(currentPeriod);
+      const res = await fetch("/api/retainers/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          period: currentPeriod,
+          sendEmail: autoSendEmail,
+        }),
+      });
 
-      if (result.count > 0) {
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || "Chyba při generování paušálů");
+      }
+
+      if (result.generatedCount > 0) {
+        const emailMsg =
+          result.emailsSent > 0
+            ? ` a ${result.emailsSent} odesláno e-mailem s PDF (faktury@technologio.eu)`
+            : "";
         toast.success(
-          `Úspěšně vygenerováno ${result.count} faktur za ${formatCurrency(result.total)}!`
+          `Vygenerováno ${result.generatedCount} faktur (${formatCurrency(
+            result.totalAmount
+          )})${emailMsg}!`
         );
         try {
           confetti({
@@ -108,8 +131,9 @@ export function RetainerManager({
       } else {
         toast.info("Nebyly nalezeny žádné nové faktury k vygenerování.");
       }
-    } catch {
-      toast.error("Chyba při generování paušálů");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Chyba při generování paušálů";
+      toast.error(msg);
     } finally {
       setIsGenerating(false);
     }
@@ -179,16 +203,31 @@ export function RetainerManager({
           </p>
         </div>
 
-        <Button
-          onClick={handleGenerateNow}
-          disabled={pendingCount === 0 || isGenerating}
-          isLoading={isGenerating}
-          size="lg"
-          className="shrink-0 shadow-lg shadow-indigo-600/25"
-        >
-          <Sparkles className="w-4 h-4 mr-2" />
-          Vygenerovat faktury na tento měsíc ({pendingCount})
-        </Button>
+        <div className="flex flex-col sm:items-end gap-2">
+          <Button
+            onClick={handleGenerateNow}
+            disabled={pendingCount === 0 || isGenerating}
+            isLoading={isGenerating}
+            size="lg"
+            className="shrink-0 shadow-lg shadow-indigo-600/25"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />
+            Vygenerovat faktury na tento měsíc ({pendingCount})
+          </Button>
+
+          <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={autoSendEmail}
+              onChange={(e) => setAutoSendEmail(e.target.checked)}
+              className="w-3.5 h-3.5 text-indigo-600 rounded-sm border-slate-300 dark:border-slate-700 focus:ring-indigo-500"
+            />
+            <span>
+              Odeslat klientům rovnou e-mail s přiloženým PDF (z{" "}
+              <strong className="text-slate-800 dark:text-slate-200">faktury@technologio.eu</strong>)
+            </span>
+          </label>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -333,13 +372,22 @@ export function RetainerManager({
                     <td className="px-5 py-4 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         {invoice && (
-                          <Link
-                            href={`/invoices/${invoice.id}`}
-                            className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
-                            title={`Zobrazit fakturu ${invoice.invoice_number}`}
-                          >
-                            <FileText className="w-4 h-4" />
-                          </Link>
+                          <>
+                            <button
+                              onClick={() => setEmailInvoice(invoice)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                              title={`Odeslat fakturu ${invoice.invoice_number} e-mailem`}
+                            >
+                              <Mail className="w-4 h-4" />
+                            </button>
+                            <Link
+                              href={`/invoices/${invoice.id}`}
+                              className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                              title={`Zobrazit fakturu ${invoice.invoice_number}`}
+                            >
+                              <FileText className="w-4 h-4" />
+                            </Link>
+                          </>
                         )}
 
                         <button
@@ -428,6 +476,15 @@ export function RetainerManager({
         onOpenChange={setIsModalOpen}
         client={selectedClient}
         onSaved={handleSavedClient}
+      />
+
+      {/* Email modal */}
+      <SendInvoiceModal
+        open={Boolean(emailInvoice)}
+        onOpenChange={(open) => {
+          if (!open) setEmailInvoice(null);
+        }}
+        invoice={emailInvoice}
       />
     </div>
   );

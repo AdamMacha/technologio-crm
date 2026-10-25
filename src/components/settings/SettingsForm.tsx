@@ -17,6 +17,8 @@ import {
   Sparkles,
   Trash2,
   RefreshCw,
+  Mail,
+  Send,
 } from "lucide-react";
 import { saveSettings, isSupabaseConfigured, seedDemoData, clearAllData } from "@/lib/data-store";
 import { toast } from "sonner";
@@ -30,12 +32,50 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
   const [settings, setSettings] = useState<Settings>(initialSettings);
   const [isSaving, setIsSaving] = useState(false);
   const [copiedSql, setCopiedSql] = useState(false);
+  const [isResendConfigured, setIsResendConfigured] = useState<boolean | null>(null);
+  const [testEmail, setTestEmail] = useState("");
+  const [isSendingTest, setIsSendingTest] = useState(false);
 
   const isSupabase = isSupabaseConfigured();
 
   useEffect(() => {
     setSettings(initialSettings);
   }, [initialSettings]);
+
+  useEffect(() => {
+    fetch("/api/email/test")
+      .then((res) => res.json())
+      .then((data) => {
+        setIsResendConfigured(Boolean(data.configured));
+      })
+      .catch(() => setIsResendConfigured(false));
+  }, []);
+
+  const handleSendTestEmail = async () => {
+    if (!testEmail || !testEmail.includes("@")) {
+      toast.error("Zadejte platnou e-mailovou adresu pro test");
+      return;
+    }
+
+    setIsSendingTest(true);
+    try {
+      const res = await fetch("/api/email/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: testEmail.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Odeslání testovacího e-mailu selhalo");
+      }
+      toast.success(data.message || `Testovací e-mail byl odeslán na ${testEmail}`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Chyba při odesílání";
+      toast.error(msg);
+    } finally {
+      setIsSendingTest(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -373,6 +413,66 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
                 placeholder="Děkujeme za spolupráci..."
                 className="mt-1"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Resend Email Configuration Box */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Mail className="w-4 h-4 text-indigo-500" />
+              <h2 className="font-semibold text-sm text-slate-900 dark:text-white">
+                E-mailové odesílání faktur (Resend)
+              </h2>
+            </div>
+            <div>
+              {isResendConfigured === null ? (
+                <span className="text-xs text-slate-400">Ověřuji...</span>
+              ) : isResendConfigured ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Resend aktivní
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Čeká na RESEND_API_KEY
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3 text-xs text-slate-600 dark:text-slate-400">
+            <p>
+              Aplikace odesílá paušální i ručně vygenerované faktury z adresy:{" "}
+              <strong className="text-slate-900 dark:text-white">
+                Technologio Fakturace &lt;faktury@technologio.eu&gt;
+              </strong>{" "}
+              s přiloženým originálním PDF daňovým dokladem a platebním QR kódem přímo v těle e-mailu.
+            </p>
+
+            <div className="bg-slate-50 dark:bg-slate-950/60 p-4 rounded-xl border border-slate-200/70 dark:border-slate-800 space-y-3">
+              <Label htmlFor="testEmail">Ověřit odesílání testovacím e-mailem</Label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Input
+                  id="testEmail"
+                  type="email"
+                  placeholder="vas-email@technologio.cz"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  className="max-w-md"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleSendTestEmail}
+                  isLoading={isSendingTest}
+                >
+                  <Send className="w-3.5 h-3.5 mr-1.5" />
+                  Odeslat test
+                </Button>
+              </div>
             </div>
           </div>
         </div>
