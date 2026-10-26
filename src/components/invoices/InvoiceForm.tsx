@@ -352,7 +352,8 @@ export function InvoiceForm({
     : "/invoices";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 pb-12">
+    <>
+      <form onSubmit={handleSubmit} className="space-y-8 pb-12">
       {/* Top action bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -832,26 +833,27 @@ export function InvoiceForm({
           )}
         </Button>
       </div>
-
-      <ClientModal
-        open={isClientModalOpen}
-        onOpenChange={setIsClientModalOpen}
-        onSaved={(newClient) => {
-          setClientList((prev) => {
-            const exists = prev.some((c) => c.id === newClient.id);
-            return exists ? prev.map((c) => (c.id === newClient.id ? newClient : c)) : [newClient, ...prev];
-          });
-          setSelectedClientId(newClient.id);
-        }}
-      />
-
-      <DiscountModal
-        open={isDiscountModalOpen}
-        onOpenChange={setIsDiscountModalOpen}
-        currentSubtotal={grossSubtotal > 0 ? grossSubtotal : subtotal}
-        isVatPayer={settings.is_vat_payer}
-        onAddDiscount={handleAddDiscount}
-      />
     </form>
+
+    <ClientModal
+      open={isClientModalOpen}
+      onOpenChange={setIsClientModalOpen}
+      onSaved={(newClient) => {
+        setClientList((prev) => {
+          const exists = prev.some((c) => c.id === newClient.id);
+          return exists ? prev.map((c) => (c.id === newClient.id ? newClient : c)) : [newClient, ...prev];
+        });
+        setSelectedClientId(newClient.id);
+      }}
+    />
+
+    <DiscountModal
+      open={isDiscountModalOpen}
+      onOpenChange={setIsDiscountModalOpen}
+      currentSubtotal={grossSubtotal > 0 ? grossSubtotal : subtotal}
+      isVatPayer={settings.is_vat_payer}
+      onAddDiscount={handleAddDiscount}
+    />
+  </>
   );
 }

@@ -51,8 +51,11 @@ export function DiscountModal({
   const finalDescription = customDescription.trim() || defaultDescription;
   const newTotal = Math.max(0, currentSubtotal - calculatedDiscount);
 
-  const handleApply = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleApply = (e?: React.SyntheticEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (calculatedDiscount <= 0) return;
 
     const discountItem: InvoiceItem = {
@@ -66,6 +69,14 @@ export function DiscountModal({
 
     onAddDiscount(discountItem);
     onOpenChange(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      handleApply();
+    }
   };
 
   const percentagePresets = [5, 10, 15, 20, 25, 50];
@@ -91,7 +102,7 @@ export function DiscountModal({
         </DialogDescription>
       </DialogHeader>
 
-      <form onSubmit={handleApply} className="space-y-5">
+      <div className="space-y-5" onKeyDown={handleKeyDown}>
         {/* Typ slevy: Přepínač Procentuální vs Pevná částka */}
         <div>
           <Label className="mb-1.5 block">Typ slevy</Label>
@@ -248,15 +259,16 @@ export function DiscountModal({
             Zrušit
           </Button>
           <Button
-            type="submit"
+            type="button"
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
             disabled={calculatedDiscount <= 0}
+            onClick={handleApply}
           >
             <Check className="w-4 h-4 mr-1.5" />
             Vložit slevu (– {formatCurrency(calculatedDiscount)})
           </Button>
         </DialogFooter>
-      </form>
+      </div>
     </Dialog>
   );
 }
