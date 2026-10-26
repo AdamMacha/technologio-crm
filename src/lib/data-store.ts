@@ -442,14 +442,58 @@ export async function getInvoice(id: string): Promise<InvoiceWithItems | null> {
   return invoices.find((inv) => inv.id === id || inv.invoice_number === id) || null;
 }
 
-export async function getNextInvoiceNumber(year: number = new Date().getFullYear()): Promise<string> {
+/**
+ * Generuje následující číslo faktury ve formátu RRRRMMXXX (např. 202610001 pro 1. fakturu v říjnu 2026)
+ * @param dateInput Datum vystavení (string "YYYY-MM-DD", Date objekt, nebo rok jako číslo)
+ * @param monthInput Číslo měsíce (1-12), pokud byl první parametr předán jako číslo roku
+ * @param additionalInvoices Doplňkové faktury (např. v průběhu dávkového generování paušálů)
+ */
+export async function getNextInvoiceNumber(
+  dateInput?: Date | string | number,
+  monthInput?: number,
+  additionalInvoices?: InvoiceWithItems[]
+): Promise<string> {
+  let year: number;
+  let month: number;
+
+  if (typeof dateInput === "number") {
+    year = dateInput;
+    month = monthInput !== undefined ? monthInput : new Date().getMonth() + 1;
+  } else if (typeof dateInput === "string" && dateInput.trim() !== "") {
+    const parts = dateInput.trim().split("-");
+    if (parts.length >= 2) {
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10);
+    } else {
+      const d = new Date(dateInput);
+      year = !isNaN(d.getFullYear()) ? d.getFullYear() : new Date().getFullYear();
+      month = !isNaN(d.getMonth()) ? d.getMonth() + 1 : new Date().getMonth() + 1;
+    }
+  } else if (dateInput instanceof Date && !isNaN(dateInput.getTime())) {
+    year = dateInput.getFullYear();
+    month = dateInput.getMonth() + 1;
+  } else {
+    const now = new Date();
+    year = now.getFullYear();
+    month = now.getMonth() + 1;
+  }
+
+  const yearStr = String(year);
+  const monthStr = String(month).padStart(2, "0");
+  const prefix = `${yearStr}${monthStr}`; // např. "202610"
+
   const invoices = await getInvoices();
-  const prefix = String(year);
+  const allInvoices =
+    additionalInvoices && additionalInvoices.length > 0
+      ? [...invoices, ...additionalInvoices]
+      : invoices;
+
   let maxSeq = 0;
 
-  for (const inv of invoices) {
-    if (inv.invoice_number && inv.invoice_number.startsWith(prefix) && inv.invoice_number.length === 8) {
-      const seq = parseInt(inv.invoice_number.slice(4), 10);
+  for (const inv of allInvoices) {
+    if (inv.invoice_number && inv.invoice_number.startsWith(prefix)) {
+      const remaining = inv.invoice_number.slice(prefix.length);
+      const seq = parseInt(remaining, 10);
       if (!isNaN(seq) && seq > maxSeq) {
         maxSeq = seq;
       }
@@ -457,7 +501,7 @@ export async function getNextInvoiceNumber(year: number = new Date().getFullYear
   }
 
   const nextSeq = maxSeq + 1;
-  return `${prefix}${String(nextSeq).padStart(4, "0")}`;
+  return `${prefix}${String(nextSeq).padStart(3, "0")}`;
 }
 
 export async function saveInvoice(
@@ -476,7 +520,7 @@ export async function saveInvoice(
 
   let invoiceNumber = invoiceData.invoice_number;
   if (!invoiceNumber) {
-    invoiceNumber = await getNextInvoiceNumber();
+    invoiceNumber = await getNextInvoiceNumber(invoiceData.issue_date);
   }
 
   const validId = invoiceData.id && isValidUUID(invoiceData.id) ? invoiceData.id : generateUUID();
@@ -657,11 +701,15 @@ export async function generateRetainersForPeriod(
       continue;
     }
 
-    const invNumber = await getNextInvoiceNumber();
+    const [year, month] = period.split("-");
+    const invNumber = await getNextInvoiceNumber(
+      `${year}-${month}-01`,
+      undefined,
+      generatedInvoices
+    );
     const issueDate = toISODateString();
     const dueDate = toISODateString(new Date(Date.now() + (settings.default_due_days || 14) * 86400000));
     
-    const [year, month] = period.split("-");
     const itemDescription = `${client.retainer_description || "Měsíční paušál a servis"} (${month}/${year})`;
 
     const invoiceItem: InvoiceItem = {

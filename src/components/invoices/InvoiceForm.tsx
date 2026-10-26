@@ -86,7 +86,7 @@ export function InvoiceForm({
   // Initialize invoice number and due date
   useEffect(() => {
     async function init() {
-      const nextNum = await getNextInvoiceNumber();
+      const nextNum = await getNextInvoiceNumber(issueDate);
       setInvoiceNumber(nextNum);
       setVariableSymbol(nextNum);
 
@@ -96,6 +96,26 @@ export function InvoiceForm({
     }
     init();
   }, [settings.default_due_days]);
+
+  const handleIssueDateChange = async (newDate: string) => {
+    setIssueDate(newDate);
+
+    if (newDate) {
+      try {
+        const nextNum = await getNextInvoiceNumber(newDate);
+        setInvoiceNumber(nextNum);
+        setVariableSymbol(nextNum);
+      } catch (err) {
+        console.warn("Could not recalculate invoice number for date:", err);
+      }
+
+      const d = new Date(newDate);
+      if (!isNaN(d.getTime())) {
+        d.setDate(d.getDate() + (settings.default_due_days || 14));
+        setDueDate(toISODateString(d));
+      }
+    }
+  };
 
   // Handle client selection
   useEffect(() => {
@@ -389,7 +409,7 @@ export function InvoiceForm({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <Label htmlFor="invNum" required>Číslo faktury (RRRRXXXX)</Label>
+            <Label htmlFor="invNum" required>Číslo faktury (RRRRMMXXX)</Label>
             <Input
               id="invNum"
               value={invoiceNumber}
@@ -419,7 +439,7 @@ export function InvoiceForm({
               id="issueD"
               type="date"
               value={issueDate}
-              onChange={(e) => setIssueDate(e.target.value)}
+              onChange={(e) => handleIssueDateChange(e.target.value)}
               required
               className="mt-1"
             />
