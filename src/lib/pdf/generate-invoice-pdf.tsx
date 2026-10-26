@@ -356,6 +356,16 @@ export const InvoicePdfDocument: React.FC<InvoicePdfProps> = ({
   qrCodeUrl,
   logoPath,
 }) => {
+  const grossSubtotal = invoice.items
+    .filter((it) => (Number(it.total_price) || 0) > 0)
+    .reduce((sum, it) => sum + (Number(it.total_price) || 0), 0);
+  const discountTotal = Math.abs(
+    invoice.items
+      .filter((it) => (Number(it.total_price) || 0) < 0)
+      .reduce((sum, it) => sum + (Number(it.total_price) || 0), 0)
+  );
+  const hasDiscounts = discountTotal > 0;
+
   return (
     <Document title={`Faktura_${invoice.invoice_number}`} author="Technologio">
       <Page size="A4" style={styles.page}>
@@ -464,15 +474,45 @@ export const InvoicePdfDocument: React.FC<InvoicePdfProps> = ({
             <Text style={styles.colTotal}>Celkem</Text>
           </View>
 
-          {invoice.items.map((item, idx) => (
-            <View key={idx} style={styles.tableRow}>
-              <Text style={styles.colDesc}>{item.description}</Text>
-              <Text style={styles.colQty}>{item.quantity}</Text>
-              <Text style={styles.colUnit}>{item.unit}</Text>
-              <Text style={styles.colUnitPrice}>{formatCurrency(item.unit_price)}</Text>
-              <Text style={styles.colTotal}>{formatCurrency(item.total_price)}</Text>
-            </View>
-          ))}
+          {invoice.items.map((item, idx) => {
+            const isDiscount = (Number(item.total_price) || 0) < 0;
+            return (
+              <View
+                key={idx}
+                style={[
+                  styles.tableRow,
+                  isDiscount ? { backgroundColor: "#f0fdf4" } : {},
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.colDesc,
+                    isDiscount ? { color: "#047857", fontWeight: 700 } : {},
+                  ]}
+                >
+                  {isDiscount ? `[SLEVA] ${item.description}` : item.description}
+                </Text>
+                <Text style={styles.colQty}>{item.quantity}</Text>
+                <Text style={styles.colUnit}>{item.unit}</Text>
+                <Text
+                  style={[
+                    styles.colUnitPrice,
+                    isDiscount ? { color: "#047857" } : {},
+                  ]}
+                >
+                  {formatCurrency(item.unit_price)}
+                </Text>
+                <Text
+                  style={[
+                    styles.colTotal,
+                    isDiscount ? { color: "#047857", fontWeight: 700 } : {},
+                  ]}
+                >
+                  {formatCurrency(item.total_price)}
+                </Text>
+              </View>
+            );
+          })}
         </View>
 
         {/* Souhrn + QR */}
@@ -494,10 +534,30 @@ export const InvoicePdfDocument: React.FC<InvoicePdfProps> = ({
 
           {/* Celkem */}
           <View style={styles.totalsBox}>
-            <View style={styles.totalLine}>
-              <Text>Mezisoučet:</Text>
-              <Text style={styles.totalValue}>{formatCurrency(invoice.subtotal)}</Text>
-            </View>
+            {hasDiscounts ? (
+              <>
+                <View style={styles.totalLine}>
+                  <Text>Položky celkem:</Text>
+                  <Text style={styles.totalValue}>{formatCurrency(grossSubtotal)}</Text>
+                </View>
+                <View style={styles.totalLine}>
+                  <Text style={{ color: "#047857" }}>Uplatněná sleva:</Text>
+                  <Text style={[styles.totalValue, { color: "#047857", fontWeight: 700 }]}>
+                    – {formatCurrency(discountTotal)}
+                  </Text>
+                </View>
+                <View style={[styles.totalLine, { borderTopWidth: 1, borderTopColor: "#e2e8f0", paddingTop: 4 }]}>
+                  <Text>Základ po slevě:</Text>
+                  <Text style={styles.totalValue}>{formatCurrency(invoice.subtotal)}</Text>
+                </View>
+              </>
+            ) : (
+              <View style={styles.totalLine}>
+                <Text>Mezisoučet:</Text>
+                <Text style={styles.totalValue}>{formatCurrency(invoice.subtotal)}</Text>
+              </View>
+            )}
+
             {invoice.tax_amount > 0 && (
               <View style={styles.totalLine}>
                 <Text>DPH:</Text>

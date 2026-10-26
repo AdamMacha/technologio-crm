@@ -35,6 +35,16 @@ export function InvoiceDocument({ initialInvoice }: InvoiceDocumentProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
 
+  const grossSubtotal = invoice.items
+    .filter((it) => (Number(it.total_price) || 0) > 0)
+    .reduce((sum, it) => sum + (Number(it.total_price) || 0), 0);
+  const discountTotal = Math.abs(
+    invoice.items
+      .filter((it) => (Number(it.total_price) || 0) < 0)
+      .reduce((sum, it) => sum + (Number(it.total_price) || 0), 0)
+  );
+  const hasDiscounts = discountTotal > 0;
+
   useEffect(() => {
     async function loadQr() {
       const qr = await generateQrPaymentDataUrl({
@@ -253,25 +263,46 @@ export function InvoiceDocument({ initialInvoice }: InvoiceDocumentProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {invoice.items.map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/50">
-                  <td className="py-3.5 text-slate-900 font-medium pr-4">
-                    {item.description}
-                  </td>
-                  <td className="py-3.5 text-right text-slate-600 whitespace-nowrap">
-                    {item.quantity}
-                  </td>
-                  <td className="py-3.5 text-right text-slate-500 whitespace-nowrap">
-                    {item.unit}
-                  </td>
-                  <td className="py-3.5 text-right text-slate-600 whitespace-nowrap">
-                    {formatCurrency(item.unit_price)}
-                  </td>
-                  <td className="py-3.5 text-right font-semibold text-slate-900 whitespace-nowrap">
-                    {formatCurrency(item.total_price)}
-                  </td>
-                </tr>
-              ))}
+              {invoice.items.map((item, idx) => {
+                const isDiscount = (Number(item.total_price) || 0) < 0;
+                return (
+                  <tr
+                    key={idx}
+                    className={
+                      isDiscount
+                        ? "bg-emerald-50/50 hover:bg-emerald-50"
+                        : "hover:bg-slate-50/50"
+                    }
+                  >
+                    <td className="py-3.5 text-slate-900 font-medium pr-4">
+                      <div className="flex items-center gap-2">
+                        <span>{item.description}</span>
+                        {isDiscount && (
+                          <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded">
+                            Sleva
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3.5 text-right text-slate-600 whitespace-nowrap">
+                      {item.quantity}
+                    </td>
+                    <td className="py-3.5 text-right text-slate-500 whitespace-nowrap">
+                      {item.unit}
+                    </td>
+                    <td className={`py-3.5 text-right whitespace-nowrap ${
+                      isDiscount ? "text-emerald-700 font-medium" : "text-slate-600"
+                    }`}>
+                      {formatCurrency(item.unit_price)}
+                    </td>
+                    <td className={`py-3.5 text-right font-semibold whitespace-nowrap ${
+                      isDiscount ? "text-emerald-700 font-bold" : "text-slate-900"
+                    }`}>
+                      {formatCurrency(item.total_price)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -303,12 +334,34 @@ export function InvoiceDocument({ initialInvoice }: InvoiceDocumentProps) {
 
           {/* Totals */}
           <div className="w-full sm:w-72 space-y-2 text-right">
-            <div className="flex justify-between text-xs text-slate-500">
-              <span>Mezisoučet:</span>
-              <span className="font-semibold text-slate-800">
-                {formatCurrency(invoice.subtotal)}
-              </span>
-            </div>
+            {hasDiscounts ? (
+              <>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Položky celkem:</span>
+                  <span className="font-semibold text-slate-800">
+                    {formatCurrency(grossSubtotal)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-emerald-600 font-semibold">
+                  <span>Uplatněná sleva:</span>
+                  <span>– {formatCurrency(discountTotal)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+                  <span>Základ po slevě:</span>
+                  <span className="font-semibold text-slate-800">
+                    {formatCurrency(invoice.subtotal)}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Mezisoučet:</span>
+                <span className="font-semibold text-slate-800">
+                  {formatCurrency(invoice.subtotal)}
+                </span>
+              </div>
+            )}
+
             {invoice.tax_amount > 0 && (
               <div className="flex justify-between text-xs text-slate-500">
                 <span>DPH:</span>

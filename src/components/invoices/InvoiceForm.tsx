@@ -16,11 +16,13 @@ import {
   ArrowLeft,
   Check,
   CreditCard,
+  Percent,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { saveInvoice, getNextInvoiceNumber, getClients } from "@/lib/data-store";
 import { ClientModal } from "@/components/clients/ClientModal";
+import { DiscountModal } from "./DiscountModal";
 
 interface InvoiceFormProps {
   clients: Client[];
@@ -43,6 +45,7 @@ export function InvoiceForm({
 
   const [clientList, setClientList] = useState<Client[]>(clients);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>(initialClientId);
   const [invoiceNumber, setInvoiceNumber] = useState<string>(
     initialInvoice?.invoice_number || ""
@@ -220,7 +223,22 @@ export function InvoiceForm({
         0
       )
     : 0;
-  const totalAmount = subtotal + taxAmount;
+  const totalAmount = Math.max(0, subtotal + taxAmount);
+
+  const grossSubtotal = items
+    .filter((it) => (Number(it.total_price) || 0) > 0)
+    .reduce((sum, it) => sum + (Number(it.total_price) || 0), 0);
+  const totalDiscount = Math.abs(
+    items
+      .filter((it) => (Number(it.total_price) || 0) < 0)
+      .reduce((sum, it) => sum + (Number(it.total_price) || 0), 0)
+  );
+  const hasDiscounts = totalDiscount > 0;
+
+  const handleAddDiscount = (discountItem: InvoiceItem) => {
+    setItems((prev) => [...prev, discountItem]);
+    toast.success(`Sleva "${discountItem.description}" byla přidána do položek`);
+  };
 
   const handleItemChange = (index: number, field: keyof InvoiceItem, value: any) => {
     const newItems = [...items];
@@ -602,100 +620,176 @@ export function InvoiceForm({
 
       {/* Položky faktury */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
           <h3 className="font-semibold text-sm text-slate-900 dark:text-white">
             Položky faktury
           </h3>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={addItem}
-          >
-            <Plus className="w-3.5 h-3.5 mr-1" />
-            Přidat položku
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDiscountModalOpen(true)}
+              className="border-emerald-300 dark:border-emerald-700/80 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+            >
+              <Percent className="w-3.5 h-3.5 mr-1 text-emerald-600 dark:text-emerald-400" />
+              Přidat slevu
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={addItem}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Přidat položku
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-3">
-          {items.map((item, idx) => (
-            <div
-              key={idx}
-              className="grid grid-cols-12 gap-2 sm:gap-3 items-center bg-slate-50/70 dark:bg-slate-800/40 p-3 rounded-xl border border-slate-100 dark:border-slate-800"
-            >
-              <div className="col-span-12 sm:col-span-5">
-                <Label className="sm:hidden mb-1">Popis položky</Label>
-                <Input
-                  placeholder="Popis služby nebo dodávky..."
-                  value={item.description}
-                  onChange={(e) => handleItemChange(idx, "description", e.target.value)}
-                  required
-                />
-              </div>
+          {items.map((item, idx) => {
+            const isDiscount = (Number(item.total_price) || 0) < 0;
+            return (
+              <div
+                key={idx}
+                className={`grid grid-cols-12 gap-2 sm:gap-3 items-center p-3 rounded-xl border transition-colors ${
+                  isDiscount
+                    ? "bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-300/80 dark:border-emerald-800/60"
+                    : "bg-slate-50/70 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800"
+                }`}
+              >
+                <div className="col-span-12 sm:col-span-5">
+                  <div className="flex items-center gap-1.5 mb-1 sm:hidden">
+                    {isDiscount && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 rounded">
+                        Sleva
+                      </span>
+                    )}
+                    <Label>Popis položky</Label>
+                  </div>
+                  <div className="relative flex items-center">
+                    {isDiscount && (
+                      <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 mr-2 text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 rounded shrink-0">
+                        Sleva
+                      </span>
+                    )}
+                    <Input
+                      placeholder={
+                        isDiscount
+                          ? "Popis slevy (např. Věrnostní sleva 10 %)..."
+                          : "Popis služby nebo dodávky..."
+                      }
+                      value={item.description}
+                      onChange={(e) => handleItemChange(idx, "description", e.target.value)}
+                      required
+                      className={
+                        isDiscount
+                          ? "border-emerald-300 dark:border-emerald-700/60 text-emerald-900 dark:text-emerald-200 font-medium"
+                          : ""
+                      }
+                    />
+                  </div>
+                </div>
 
-              <div className="col-span-4 sm:col-span-2">
-                <Label className="sm:hidden mb-1">Počet</Label>
-                <Input
-                  type="number"
-                  min="0.1"
-                  step="any"
-                  value={item.quantity}
-                  onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
-                  required
-                />
-              </div>
+                <div className="col-span-4 sm:col-span-2">
+                  <Label className="sm:hidden mb-1">Počet</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    value={item.quantity}
+                    onChange={(e) => handleItemChange(idx, "quantity", e.target.value)}
+                    required
+                  />
+                </div>
 
-              <div className="col-span-4 sm:col-span-1">
-                <Label className="sm:hidden mb-1">Jedn.</Label>
-                <Input
-                  value={item.unit}
-                  onChange={(e) => handleItemChange(idx, "unit", e.target.value)}
-                  placeholder="hod"
-                />
-              </div>
+                <div className="col-span-4 sm:col-span-1">
+                  <Label className="sm:hidden mb-1">Jedn.</Label>
+                  <Input
+                    value={item.unit}
+                    onChange={(e) => handleItemChange(idx, "unit", e.target.value)}
+                    placeholder="hod"
+                  />
+                </div>
 
-              <div className="col-span-4 sm:col-span-2">
-                <Label className="sm:hidden mb-1">Cena/jedn. (Kč)</Label>
-                <Input
-                  type="number"
-                  value={item.unit_price}
-                  onChange={(e) => handleItemChange(idx, "unit_price", e.target.value)}
-                  required
-                />
-              </div>
+                <div className="col-span-4 sm:col-span-2">
+                  <Label className="sm:hidden mb-1">Cena/jedn. (Kč)</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    value={item.unit_price}
+                    onChange={(e) => handleItemChange(idx, "unit_price", e.target.value)}
+                    required
+                    className={
+                      isDiscount
+                        ? "text-emerald-700 dark:text-emerald-400 font-semibold"
+                        : ""
+                    }
+                  />
+                </div>
 
-              <div className="col-span-10 sm:col-span-1 text-right font-medium text-slate-900 dark:text-white text-sm">
-                <span className="sm:hidden text-xs text-slate-500 mr-2">Celkem:</span>
-                {formatCurrency(item.total_price)}
-              </div>
-
-              <div className="col-span-2 sm:col-span-1 text-right">
-                <button
-                  type="button"
-                  onClick={() => removeItem(idx)}
-                  className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors"
-                  title="Smazat položku"
+                <div
+                  className={`col-span-10 sm:col-span-1 text-right font-medium text-sm ${
+                    isDiscount
+                      ? "text-emerald-700 dark:text-emerald-400 font-bold"
+                      : "text-slate-900 dark:text-white"
+                  }`}
                 >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                  <span className="sm:hidden text-xs text-slate-500 mr-2">Celkem:</span>
+                  {formatCurrency(item.total_price)}
+                </div>
+
+                <div className="col-span-2 sm:col-span-1 text-right">
+                  <button
+                    type="button"
+                    onClick={() => removeItem(idx)}
+                    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors"
+                    title="Smazat položku"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Financial Summary */}
-        <div className="border-t border-slate-100 dark:border-slate-800 pt-4 flex flex-col items-end gap-1 text-sm">
-          <div className="flex justify-between w-64 text-slate-500 dark:text-slate-400">
-            <span>Mezisoučet:</span>
-            <span>{formatCurrency(subtotal)}</span>
-          </div>
+        <div className="border-t border-slate-100 dark:border-slate-800 pt-4 flex flex-col items-end gap-1.5 text-sm">
+          {hasDiscounts ? (
+            <>
+              <div className="flex justify-between w-72 text-slate-500 dark:text-slate-400">
+                <span>Položky celkem:</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  {formatCurrency(grossSubtotal)}
+                </span>
+              </div>
+              <div className="flex justify-between w-72 text-emerald-600 dark:text-emerald-400 font-medium">
+                <span>Uplatněná sleva:</span>
+                <span>– {formatCurrency(totalDiscount)}</span>
+              </div>
+              <div className="flex justify-between w-72 text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <span>Základ po slevě:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {formatCurrency(subtotal)}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex justify-between w-72 text-slate-500 dark:text-slate-400">
+              <span>Mezisoučet:</span>
+              <span>{formatCurrency(subtotal)}</span>
+            </div>
+          )}
+
           {settings.is_vat_payer && (
-            <div className="flex justify-between w-64 text-slate-500 dark:text-slate-400">
+            <div className="flex justify-between w-72 text-slate-500 dark:text-slate-400">
               <span>DPH:</span>
               <span>{formatCurrency(taxAmount)}</span>
             </div>
           )}
-          <div className="flex justify-between w-64 pt-2 border-t border-slate-200 dark:border-slate-800 text-base font-bold text-slate-900 dark:text-white">
+
+          <div className="flex justify-between w-72 pt-2 border-t border-slate-200 dark:border-slate-800 text-base font-bold text-slate-900 dark:text-white">
             <span>Celkem k úhradě:</span>
             <span className="text-indigo-600 dark:text-indigo-400 text-lg">
               {formatCurrency(totalAmount)}
@@ -749,6 +843,14 @@ export function InvoiceForm({
           });
           setSelectedClientId(newClient.id);
         }}
+      />
+
+      <DiscountModal
+        open={isDiscountModalOpen}
+        onOpenChange={setIsDiscountModalOpen}
+        currentSubtotal={grossSubtotal > 0 ? grossSubtotal : subtotal}
+        isVatPayer={settings.is_vat_payer}
+        onAddDiscount={handleAddDiscount}
       />
     </form>
   );

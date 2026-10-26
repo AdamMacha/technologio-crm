@@ -22,6 +22,20 @@ export function buildInvoiceEmailHtml(params: {
 }): string {
   const { invoice, customMessage, qrCodeDataUrl } = params;
 
+  const grossSubtotal = invoice.items
+    ? invoice.items
+        .filter((it) => (Number(it.total_price) || 0) > 0)
+        .reduce((sum, it) => sum + (Number(it.total_price) || 0), 0)
+    : invoice.subtotal;
+  const discountTotal = invoice.items
+    ? Math.abs(
+        invoice.items
+          .filter((it) => (Number(it.total_price) || 0) < 0)
+          .reduce((sum, it) => sum + (Number(it.total_price) || 0), 0)
+      )
+    : 0;
+  const hasDiscounts = discountTotal > 0;
+
   return `<!DOCTYPE html>
 <html lang="cs">
 <head>
@@ -202,6 +216,15 @@ export function buildInvoiceEmailHtml(params: {
       <div class="payment-card">
         <div class="payment-title">Platební údaje</div>
         <table class="payment-grid">
+          ${hasDiscounts ? `
+          <tr>
+            <td style="color: #64748b;">Položky celkem:</td>
+            <td>${formatCurrency(grossSubtotal)}</td>
+          </tr>
+          <tr>
+            <td style="color: #059669; font-weight: 600;">Uplatněná sleva:</td>
+            <td style="color: #059669; font-weight: 600;">– ${formatCurrency(discountTotal)}</td>
+          </tr>` : ""}
           <tr>
             <td style="color: #64748b;">Částka k úhradě:</td>
             <td class="amount-highlight">${formatCurrency(invoice.total_amount)}</td>
