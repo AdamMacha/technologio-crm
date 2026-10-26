@@ -17,6 +17,7 @@ import {
   Calendar,
   AlertTriangle,
   Mail,
+  Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -228,6 +229,13 @@ export function InvoiceTable({ initialInvoices }: InvoiceTableProps) {
                         >
                           <Download className="w-4 h-4" />
                         </a>
+                        <Link
+                          href={`/invoices/${inv.id}/edit`}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          title="Upravit fakturu"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Link>
                         <Link
                           href={`/invoices/${inv.id}`}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"

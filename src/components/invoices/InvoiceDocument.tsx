@@ -19,6 +19,7 @@ import {
   CreditCard,
   Sparkles,
   Mail,
+  Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import { updateInvoiceStatus } from "@/lib/data-store";
@@ -92,6 +93,13 @@ export function InvoiceDocument({ initialInvoice }: InvoiceDocumentProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Link href={`/invoices/${invoice.id}/edit`}>
+            <Button variant="outline" className="border-slate-200 dark:border-slate-800">
+              <Pencil className="w-4 h-4 mr-2 text-amber-500" />
+              Upravit
+            </Button>
+          </Link>
+
           <Button
             variant="primary"
             onClick={() => setIsEmailModalOpen(true)}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Client, Invoice, InvoiceItem, Settings } from "@/types";
+import { Client, Invoice, InvoiceItem, InvoiceWithItems, InvoiceStatus, Settings } from "@/types";
 import { formatCurrency, toISODateString } from "@/lib/formatters";
 import { Button } from "@/ui/button";
 import { Input, Label, Textarea } from "@/ui/input";
@@ -14,7 +14,8 @@ import {
   Building,
   User,
   ArrowLeft,
-  Sparkles,
+  Check,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -25,26 +26,48 @@ interface InvoiceFormProps {
   clients: Client[];
   settings: Settings;
   preselectedClientId?: string;
+  initialInvoice?: InvoiceWithItems;
 }
 
 export function InvoiceForm({
   clients,
   settings,
   preselectedClientId,
+  initialInvoice,
 }: InvoiceFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialClientId = preselectedClientId || searchParams.get("clientId") || "";
+  const isEditMode = Boolean(initialInvoice);
+  const initialClientId =
+    initialInvoice?.client_id || preselectedClientId || searchParams.get("clientId") || "";
 
   const [clientList, setClientList] = useState<Client[]>(clients);
   const [isClientModalOpen, setIsClientModalOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>(initialClientId);
-  const [invoiceNumber, setInvoiceNumber] = useState<string>("");
-  const [variableSymbol, setVariableSymbol] = useState<string>("");
-  const [issueDate, setIssueDate] = useState<string>(toISODateString());
-  const [dueDate, setDueDate] = useState<string>("");
-  const [taxableDate, setTaxableDate] = useState<string>(toISODateString());
-  const [notes, setNotes] = useState<string>(settings.invoice_note || "");
+  const [invoiceNumber, setInvoiceNumber] = useState<string>(
+    initialInvoice?.invoice_number || ""
+  );
+  const [variableSymbol, setVariableSymbol] = useState<string>(
+    initialInvoice?.variable_symbol || ""
+  );
+  const [issueDate, setIssueDate] = useState<string>(
+    initialInvoice?.issue_date || toISODateString()
+  );
+  const [dueDate, setDueDate] = useState<string>(
+    initialInvoice?.due_date || ""
+  );
+  const [taxableDate, setTaxableDate] = useState<string>(
+    initialInvoice?.taxable_date || toISODateString()
+  );
+  const [status, setStatus] = useState<InvoiceStatus>(
+    initialInvoice?.status || "pending"
+  );
+  const [paymentMethod, setPaymentMethod] = useState<string>(
+    initialInvoice?.payment_method || "bank_transfer"
+  );
+  const [notes, setNotes] = useState<string>(
+    initialInvoice?.notes ?? (settings.invoice_note || "")
+  );
 
   // Načíst klienty na klientovi pro zajištění nejnovějších dat
   useEffect(() => {
@@ -63,28 +86,41 @@ export function InvoiceForm({
   }, [clients]);
 
   // Client snapshot
-  const [clientName, setClientName] = useState("");
-  const [clientIco, setClientIco] = useState("");
-  const [clientDic, setClientDic] = useState("");
-  const [clientAddress, setClientAddress] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
+  const [clientName, setClientName] = useState(initialInvoice?.client_name || "");
+  const [clientIco, setClientIco] = useState(initialInvoice?.client_ico || "");
+  const [clientDic, setClientDic] = useState(initialInvoice?.client_dic || "");
+  const [clientAddress, setClientAddress] = useState(initialInvoice?.client_address || "");
+  const [clientEmail, setClientEmail] = useState(initialInvoice?.client_email || "");
 
   // Items
-  const [items, setItems] = useState<InvoiceItem[]>([
-    {
-      description: "Vývoj webové aplikace a frontendové úpravy",
-      quantity: 1,
-      unit: "ks",
-      unit_price: 15000,
-      vat_rate: settings.is_vat_payer ? 21 : 0,
-      total_price: 15000,
-    },
-  ]);
+  const [items, setItems] = useState<InvoiceItem[]>(
+    initialInvoice?.items && initialInvoice.items.length > 0
+      ? initialInvoice.items.map((it) => ({
+          ...it,
+          quantity: Number(it.quantity) || 1,
+          unit_price: Number(it.unit_price) || 0,
+          vat_rate: Number(it.vat_rate) || 0,
+          total_price:
+            Number(it.total_price) ||
+            (Number(it.quantity) || 1) * (Number(it.unit_price) || 0),
+        }))
+      : [
+          {
+            description: "Vývoj webové aplikace a frontendové úpravy",
+            quantity: 1,
+            unit: "ks",
+            unit_price: 15000,
+            vat_rate: settings.is_vat_payer ? 21 : 0,
+            total_price: 15000,
+          },
+        ]
+  );
 
   const [isSaving, setIsSaving] = useState(false);
 
-  // Initialize invoice number and due date
+  // Initialize invoice number and due date (only when creating new invoice)
   useEffect(() => {
+    if (isEditMode) return;
     async function init() {
       const nextNum = await getNextInvoiceNumber(issueDate);
       setInvoiceNumber(nextNum);
@@ -95,32 +131,12 @@ export function InvoiceForm({
       setDueDate(toISODateString(due));
     }
     init();
-  }, [settings.default_due_days]);
+  }, [settings.default_due_days, isEditMode]);
 
-  const handleIssueDateChange = async (newDate: string) => {
-    setIssueDate(newDate);
-
-    if (newDate) {
-      try {
-        const nextNum = await getNextInvoiceNumber(newDate);
-        setInvoiceNumber(nextNum);
-        setVariableSymbol(nextNum);
-      } catch (err) {
-        console.warn("Could not recalculate invoice number for date:", err);
-      }
-
-      const d = new Date(newDate);
-      if (!isNaN(d.getTime())) {
-        d.setDate(d.getDate() + (settings.default_due_days || 14));
-        setDueDate(toISODateString(d));
-      }
-    }
-  };
-
-  // Handle client selection
+  // Initial fill for query param clientId in create mode
   useEffect(() => {
-    if (selectedClientId) {
-      const client = clientList.find((c) => c.id === selectedClientId);
+    if (!isEditMode && initialClientId && clientList.length > 0 && !clientName) {
+      const client = clientList.find((c) => c.id === initialClientId);
       if (client) {
         setClientName(client.name);
         setClientIco(client.ico || "");
@@ -129,8 +145,6 @@ export function InvoiceForm({
           [client.street, client.zip, client.city].filter(Boolean).join(", ")
         );
         setClientEmail(client.email || "");
-
-        // If client has retainer, we can prefill retainer description and amount
         if (client.has_retainer && client.retainer_amount > 0) {
           setItems([
             {
@@ -145,7 +159,58 @@ export function InvoiceForm({
         }
       }
     }
-  }, [selectedClientId, clientList, settings.is_vat_payer]);
+  }, [clientList, initialClientId, isEditMode, clientName, settings.is_vat_payer]);
+
+  const handleIssueDateChange = async (newDate: string) => {
+    setIssueDate(newDate);
+
+    if (newDate) {
+      if (!isEditMode) {
+        try {
+          const nextNum = await getNextInvoiceNumber(newDate);
+          setInvoiceNumber(nextNum);
+          setVariableSymbol(nextNum);
+        } catch (err) {
+          console.warn("Could not recalculate invoice number for date:", err);
+        }
+      }
+
+      const d = new Date(newDate);
+      if (!isNaN(d.getTime())) {
+        d.setDate(d.getDate() + (settings.default_due_days || 14));
+        setDueDate(toISODateString(d));
+      }
+    }
+  };
+
+  const handleClientSelect = (clientId: string) => {
+    setSelectedClientId(clientId);
+    if (!clientId) return;
+    const client = clientList.find((c) => c.id === clientId);
+    if (client) {
+      setClientName(client.name);
+      setClientIco(client.ico || "");
+      setClientDic(client.dic || "");
+      setClientAddress(
+        [client.street, client.zip, client.city].filter(Boolean).join(", ")
+      );
+      setClientEmail(client.email || "");
+
+      // If client has retainer, we can prefill retainer description and amount only when creating new
+      if (!isEditMode && client.has_retainer && client.retainer_amount > 0) {
+        setItems([
+          {
+            description: client.retainer_description || "Měsíční paušál a servis",
+            quantity: 1,
+            unit: "měsíc",
+            unit_price: client.retainer_amount,
+            vat_rate: settings.is_vat_payer ? 21 : 0,
+            total_price: client.retainer_amount,
+          },
+        ]);
+      }
+    }
+  };
 
   // Calculate totals
   const subtotal = items.reduce((sum, item) => sum + (Number(item.total_price) || 0), 0);
@@ -207,21 +272,36 @@ export function InvoiceForm({
     setIsSaving(true);
     try {
       const invoiceData: Partial<Invoice> = {
+        ...(initialInvoice
+          ? {
+              id: initialInvoice.id,
+              created_at: initialInvoice.created_at,
+              is_retainer: initialInvoice.is_retainer,
+              retainer_period: initialInvoice.retainer_period,
+              paid_at:
+                status === "paid"
+                  ? initialInvoice.paid_at || new Date().toISOString()
+                  : null,
+            }
+          : {}),
         client_id: selectedClientId || null,
         invoice_number: invoiceNumber,
         variable_symbol: variableSymbol || invoiceNumber,
         issue_date: issueDate,
         due_date: dueDate,
         taxable_date: taxableDate,
-        status: "pending",
-        payment_method: "bank_transfer",
-        supplier_name: settings.company_name,
-        supplier_ico: settings.ico,
-        supplier_dic: settings.dic,
-        supplier_address: `${settings.street}, ${settings.zip} ${settings.city}`,
-        supplier_bank_account: settings.bank_account,
-        supplier_iban: settings.iban,
-        supplier_swift: settings.swift,
+        status: status,
+        payment_method: paymentMethod,
+        supplier_name: initialInvoice?.supplier_name || settings.company_name,
+        supplier_ico: initialInvoice?.supplier_ico || settings.ico,
+        supplier_dic: initialInvoice?.supplier_dic ?? settings.dic,
+        supplier_address:
+          initialInvoice?.supplier_address ||
+          `${settings.street}, ${settings.zip} ${settings.city}`,
+        supplier_bank_account:
+          initialInvoice?.supplier_bank_account || settings.bank_account,
+        supplier_iban: initialInvoice?.supplier_iban ?? settings.iban,
+        supplier_swift: initialInvoice?.supplier_swift ?? settings.swift,
         client_name: clientName,
         client_ico: clientIco,
         client_dic: clientDic,
@@ -231,15 +311,27 @@ export function InvoiceForm({
       };
 
       const saved = await saveInvoice(invoiceData, items);
-      toast.success(`Faktura ${saved.invoice_number} byla úspěšně vystavena!`);
+      toast.success(
+        isEditMode
+          ? `Faktura ${saved.invoice_number} byla úspěšně upravena!`
+          : `Faktura ${saved.invoice_number} byla úspěšně vystavena!`
+      );
       router.push(`/invoices/${saved.id}`);
       router.refresh();
     } catch (err) {
-      toast.error("Chyba při vystavování faktury");
+      toast.error(
+        isEditMode
+          ? "Chyba při ukládání změn faktury"
+          : "Chyba při vystavování faktury"
+      );
     } finally {
       setIsSaving(false);
     }
   };
+
+  const cancelHref = initialInvoice
+    ? `/invoices/${initialInvoice.id}`
+    : "/invoices";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 pb-12">
@@ -247,30 +339,50 @@ export function InvoiceForm({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link
-            href="/invoices"
+            href={cancelHref}
             className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Vystavit novou fakturu
+              {isEditMode ? `Upravit fakturu č. ${invoiceNumber}` : "Vystavit novou fakturu"}
             </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Číslo faktury: {invoiceNumber || "..."}
-            </p>
+            {isEditMode ? (
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Úprava existujícího daňového dokladu
+                </span>
+                <span className="px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 rounded-full">
+                  Režim úprav
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Číslo faktury: {invoiceNumber || "..."}
+              </p>
+            )}
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/invoices">
+          <Link href={cancelHref}>
             <Button type="button" variant="outline">
               Zrušit
             </Button>
           </Link>
           <Button type="submit" isLoading={isSaving}>
-            <FileText className="w-4 h-4 mr-1.5" />
-            Vystavit a uložit fakturu
+            {isEditMode ? (
+              <>
+                <Check className="w-4 h-4 mr-1.5" />
+                Uložit změny faktury
+              </>
+            ) : (
+              <>
+                <FileText className="w-4 h-4 mr-1.5" />
+                Vystavit a uložit fakturu
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -331,7 +443,7 @@ export function InvoiceForm({
             <select
               id="clientSelect"
               value={selectedClientId}
-              onChange={(e) => setSelectedClientId(e.target.value)}
+              onChange={(e) => handleClientSelect(e.target.value)}
               className="mt-1 flex h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500/50"
             >
               <option value="">-- Vyberte klienta ze seznamu --</option>
@@ -407,7 +519,7 @@ export function InvoiceForm({
           Fakturační a platební náležitosti
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <Label htmlFor="invNum" required>Číslo faktury (RRRRMMXXX)</Label>
             <Input
@@ -434,6 +546,21 @@ export function InvoiceForm({
           </div>
 
           <div>
+            <Label htmlFor="statusSelect">Stav faktury</Label>
+            <select
+              id="statusSelect"
+              value={status}
+              onChange={(e) => setStatus(e.target.value as InvoiceStatus)}
+              className="mt-1 flex h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+            >
+              <option value="pending">Čeká na úhradu</option>
+              <option value="paid">Uhrazeno</option>
+              <option value="overdue">Po splatnosti</option>
+              <option value="cancelled">Stornováno</option>
+            </select>
+          </div>
+
+          <div>
             <Label htmlFor="issueD" required>Datum vystavení</Label>
             <Input
               id="issueD"
@@ -455,6 +582,20 @@ export function InvoiceForm({
               required
               className="mt-1 font-semibold text-indigo-600 dark:text-indigo-400"
             />
+          </div>
+
+          <div>
+            <Label htmlFor="payMethod">Způsob úhrady</Label>
+            <select
+              id="payMethod"
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className="mt-1 flex h-10 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+            >
+              <option value="bank_transfer">Bankovní převod</option>
+              <option value="cash">Hotovost</option>
+              <option value="card">Platební karta</option>
+            </select>
           </div>
         </div>
       </div>
@@ -523,7 +664,8 @@ export function InvoiceForm({
                 />
               </div>
 
-              <div className="col-span-10 sm:col-span-1 text-right font-semibold text-sm text-slate-900 dark:text-white">
+              <div className="col-span-10 sm:col-span-1 text-right font-medium text-slate-900 dark:text-white text-sm">
+                <span className="sm:hidden text-xs text-slate-500 mr-2">Celkem:</span>
                 {formatCurrency(item.total_price)}
               </div>
 
@@ -531,7 +673,7 @@ export function InvoiceForm({
                 <button
                   type="button"
                   onClick={() => removeItem(idx)}
-                  className="p-2 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                  className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors"
                   title="Smazat položku"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -577,14 +719,23 @@ export function InvoiceForm({
 
       {/* Bottom submit button */}
       <div className="flex justify-end gap-3">
-        <Link href="/invoices">
+        <Link href={cancelHref}>
           <Button type="button" variant="outline">
             Zrušit
           </Button>
         </Link>
         <Button type="submit" size="lg" isLoading={isSaving}>
-          <FileText className="w-5 h-5 mr-2" />
-          Vystavit fakturu {invoiceNumber}
+          {isEditMode ? (
+            <>
+              <Check className="w-5 h-5 mr-2" />
+              Uložit změny faktury {invoiceNumber}
+            </>
+          ) : (
+            <>
+              <FileText className="w-5 h-5 mr-2" />
+              Vystavit fakturu {invoiceNumber}
+            </>
+          )}
         </Button>
       </div>
 
